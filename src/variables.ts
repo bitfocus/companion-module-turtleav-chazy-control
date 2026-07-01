@@ -1,15 +1,11 @@
 import type ModuleInstance from './main.js'
+import { createModuleLogger } from '@companion-module/base'
 
-export type VariablesSchema = {
-	variable1: string
-	variable2: string
-	variable3: string
-}
+export type VariablesSchema = Record<string, never>
 
 export function UpdateVariableDefinitions(self: ModuleInstance): void {
-	self.setVariableDefinitions({
-		variable1: { name: 'My first variable' },
-		variable2: { name: 'My second variable' },
-		variable3: { name: 'Another variable' },
-	})
+	const logger = createModuleLogger('Variables')
+	const variables: VariablesSchema = {}
+	logger.info(`Setting ${Object.keys(variables).length} variable definitions`)
+	self.setVariableDefinitions(variables)
 }
