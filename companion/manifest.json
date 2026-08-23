@@ -7,8 +7,8 @@
 	"description": "Companion Module for the Chazy Control",
 	"version": "0.0.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/phillipivan/companion-module-turtleav-chazy-control.git",
-	"bugs": "https://github.com/phillipivan/companion-module-turtleav-chazy-control/issues",
+	"repository": "git+https://github.com/bitfocus/companion-module-turtleav-chazy-control.git",
+	"bugs": "https://github.com/bitfocus/companion-module-turtleav-chazy-control/issues",
 	"maintainers": [
 		{
 			"name": "Phillip Ivan Pietruschka",

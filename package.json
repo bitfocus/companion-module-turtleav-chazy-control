@@ -16,7 +16,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/phillipivan/companion-module-turtleav-chazy-control.git"
+		"url": "git+https://github.com/bitfocus/companion-module-turtleav-chazy-control.git"
 	},
 	"engines": {
 		"node": "^26.4",
