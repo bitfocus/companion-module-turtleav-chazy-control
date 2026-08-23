@@ -1,9 +1,16 @@
 import { EventEmitter } from 'node:events'
 
 import { createModuleLogger, type DropdownChoice } from '@companion-module/base'
+import type { z } from 'zod'
 import type { Message } from './types.js'
 import { ChazyDanteResponseSchema, type ChazyDanteResponse } from './schemas/dante.js'
-import ModuleInstance from './main.js'
+import { ChazyDantePresetResponseSchema, type ChazyDantePresetResponse } from './schemas/dantepreset.js'
+import { ChazyMxStaResponseSchema, type ChazyMxStaResponse } from './schemas/mxsta.js'
+import { ChazyTimeResponseSchema, type ChazyTimeResponse } from './schemas/time.js'
+import { ChazyControlEventResponseSchema, type ChazyControlEventResponse } from './schemas/controlevent.js'
+import { ChazyControlEventLogResponseSchema, type ChazyControlEventLogResponse } from './schemas/controleventlog.js'
+import type ModuleInstance from './main.js'
+import { jpegBufferToPng64 } from './utils/image.js'
 
 function assertValidPositiveInteger(value: number, label: string): void {
 	if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${label} ${value}`)
@@ -23,7 +30,7 @@ function assertValidRange(value: number, min: number, max: number, label: string
 	if (!Number.isInteger(value) || value < min || value > max) throw new Error(`Invalid ${label} ${value}`)
 }
 
-function assertValidIPv4(ip: string, label: string): void {
+export function assertValidIPv4(ip: string, label: string): void {
 	const octets = ip.split('.')
 	if (octets.length !== 4 || !octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)) {
 		throw new Error(`Invalid ${label} ${ip}`)
@@ -70,6 +77,8 @@ export const EVENT_TYPES = {
 
 export type EventType = keyof typeof EVENT_TYPES
 
+export type DecoderSwitchSignal = 'ALL' | 'VIDEO' | 'AUDIO' | 'IR' | 'RS232' | 'USB' | 'CEC' | 'MEDIA'
+
 export interface ChazyControlEvents {
 	/** Emitted whenever the dante devices found on the network change. */
 	dante_device_changed: []
@@ -85,14 +94,25 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 	#logger = createModuleLogger('ChazyControl')
 	#instance!: ModuleInstance
 	#dante: ChazyDanteResponse | null = null
+	#dantePreset: ChazyDantePresetResponse | null = null
+	#mxsta: ChazyMxStaResponse | null = null
+	#time: ChazyTimeResponse | null = null
+	#controlEvent: ChazyControlEventResponse | null = null
+	#controlEventLog: ChazyControlEventLogResponse | null = null
 	#pollTimer: NodeJS.Timeout | null = null
 	#pollInterval = 10000
 	#signal?: AbortSignal
 
-	constructor(instance: ModuleInstance, pollInterval = 10000, signal?: AbortSignal) {
+	#feedbacksToPoll = new Set<string>()
+	#imagePollTimer: NodeJS.Timeout | null = null
+	#imagePollInterval: number
+	#captureCache = new Map<string, { timestamp: number; promise: Promise<string> }>()
+
+	constructor(instance: ModuleInstance, pollInterval = 10000, imagePollInterval = 10000, signal?: AbortSignal) {
 		super()
 		this.#instance = instance
 		this.#pollInterval = pollInterval
+		this.#imagePollInterval = imagePollInterval
 		this.#signal = signal
 
 		if (this.#signal) {
@@ -110,15 +130,13 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			clearTimeout(this.#pollTimer)
 			this.#pollTimer = null
 		}
+		this.#stopImagePolling()
 	}
 
 	async #pollOnce(): Promise<void> {
 		if (this.#signal?.aborted) return
 
-		try {
-			const json = await this.#instance.sendMsg(ChazyControl.getDanteDevices(), this.#signal)
-			const parsed = ChazyDanteResponseSchema.parse(json)
-
+		await this.#pollSchema('dante devices', ChazyControl.getDanteDevices(), ChazyDanteResponseSchema, (parsed) => {
 			const newNames = parsed.dante.map((dev) => dev.name)
 			const oldNames = this.#dante?.dante.map((dev) => dev.name) ?? []
 
@@ -127,19 +145,113 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			if (!areDeviceNameSetsEqual(newNames, oldNames)) {
 				this.emit('dante_device_changed')
 			}
-		} catch (err) {
-			if (this.#signal?.aborted) {
-				// Expected: the signal aborted mid-request (config update / destroy). Stop quietly.
-				return
-			}
-			this.#logger.error(`Failed to poll Dante devices: ${(err as Error).message}`)
-		}
+		})
+		await this.#pollSchema(
+			'dante presets',
+			ChazyControl.getDantePresets(),
+			ChazyDantePresetResponseSchema,
+			(parsed) => {
+				this.#dantePreset = parsed
+			},
+		)
+		await this.#pollSchema('matrix status', ChazyControl.getMxSta(), ChazyMxStaResponseSchema, (parsed) => {
+			this.#mxsta = parsed
+		})
+		await this.#pollSchema('time', ChazyControl.getTime(), ChazyTimeResponseSchema, (parsed) => {
+			this.#time = parsed
+		})
+		await this.#pollSchema(
+			'control events',
+			ChazyControl.getControlEvents(),
+			ChazyControlEventResponseSchema,
+			(parsed) => {
+				this.#controlEvent = parsed
+			},
+		)
+		await this.#pollSchema(
+			'control event log',
+			ChazyControl.getControlEventLog(),
+			ChazyControlEventLogResponseSchema,
+			(parsed) => {
+				this.#controlEventLog = parsed
+			},
+		)
 
 		if (!this.#signal?.aborted) {
 			this.#pollTimer = setTimeout(() => {
 				void this.#pollOnce()
 			}, this.#pollInterval)
 		}
+	}
+
+	// Runs one status query in isolation, so a failure to fetch or parse it doesn't stop
+	// the other queries in the same poll cycle from running.
+	async #pollSchema<T>(
+		label: string,
+		msg: Message & { method: 'get' },
+		schema: z.ZodType<T>,
+		store: (parsed: T) => void,
+	): Promise<void> {
+		try {
+			const json = await this.#instance.sendMsg(msg, this.#signal)
+			store(schema.parse(json))
+		} catch (err) {
+			if (this.#signal?.aborted) {
+				// Expected: the signal aborted mid-request (config update / destroy). Stop quietly.
+				return
+			}
+			this.#logger.error(`Failed to poll ${label}: ${(err as Error).message}`)
+		}
+	}
+
+	// The set of feedback ids currently expecting a periodic image refresh — read by
+	// `main.ts` when recreating this instance across a config update, so polling resumes
+	// for feedbacks that were already tracked rather than going silent until Companion
+	// happens to recheck them.
+	public getFeedbacksToPoll(): ReadonlySet<string> {
+		return this.#feedbacksToPoll
+	}
+
+	public addFeedbackToPoll(feedbackId: string): void {
+		this.#feedbacksToPoll.add(feedbackId)
+		this.#ensureImagePolling()
+	}
+
+	public removeFeedbackToPoll(feedbackId: string): void {
+		this.#feedbacksToPoll.delete(feedbackId)
+		if (this.#feedbacksToPoll.size === 0) {
+			this.#stopImagePolling()
+		}
+	}
+
+	#ensureImagePolling(): void {
+		if (this.#imagePollTimer || this.#signal?.aborted) return
+		this.#imagePollTimer = setInterval(() => {
+			this.#instance.checkFeedbacksById(...this.#feedbacksToPoll)
+		}, this.#imagePollInterval)
+	}
+
+	#stopImagePolling(): void {
+		if (this.#imagePollTimer) {
+			clearInterval(this.#imagePollTimer)
+			this.#imagePollTimer = null
+		}
+	}
+
+	// Central capture + JPEG->PNG conversion, cached per ip+width so multiple feedbacks
+	// pointed at the same device don't each trigger their own request every poll interval.
+	public async getCapturePreview(ip: string, width: number): Promise<string> {
+		const key = `${ip}:${width}`
+		const cached = this.#captureCache.get(key)
+		if (cached && Date.now() - cached.timestamp < this.#imagePollInterval) {
+			return cached.promise
+		}
+
+		const msg: Message & { method: 'capture' } = { method: 'capture', ip, width }
+		const promise = this.#instance.sendMsg(msg).then(jpegBufferToPng64)
+		promise.catch(() => this.#captureCache.delete(key))
+		this.#captureCache.set(key, { timestamp: Date.now(), promise })
+		return promise
 	}
 
 	// Commands For Device Management
@@ -174,6 +286,37 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 
 	static addAutoAll(): Message & { method: 'submit' } {
 		return { data: 'ADD AUTO ALL', method: 'submit' }
+	}
+
+	// Commands For Decoder Control
+
+	static switchDecoder(dec: number, enc: number, signal: DecoderSwitchSignal): Message & { method: 'submit' } {
+		assertValidRange(dec, 1, 999, 'decoder')
+		assertValidRange(enc, 0, 999, 'encoder')
+		return { data: `SET DEC ${dec} SWITCH ${enc} ${signal}`, method: 'submit' }
+	}
+
+	static setDecoderUsbData(dec: number, state: 'ON' | 'OFF'): Message & { method: 'submit' } {
+		assertValidRange(dec, 1, 999, 'decoder')
+		return { data: `SET DEC ${dec} USB DATA ${state}`, method: 'submit' }
+	}
+
+	// Status queries polled every `#pollOnce`
+
+	static getMxSta(): Message & { method: 'get' } {
+		return { data: 'mxsta', method: 'get' }
+	}
+
+	static getTime(): Message & { method: 'get' } {
+		return { data: 'time', method: 'get' }
+	}
+
+	static getControlEvents(): Message & { method: 'get' } {
+		return { data: 'controlevent', method: 'get' }
+	}
+
+	static getControlEventLog(): Message & { method: 'get' } {
+		return { data: 'controleventlog', method: 'get' }
 	}
 
 	// Commands For Dante Control
@@ -329,6 +472,10 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 
 	// Commands For Dante Preset Control
 
+	static getDantePresets(): Message & { method: 'get' } {
+		return { data: 'dante_preset', method: 'get' }
+	}
+
 	static createDantePreset(hdl: number): Message & { method: 'submit' } {
 		assertValidHandle(hdl, 'dante preset handle')
 		return { data: `CREATE DANTE PRESET HANDLE ${hdl}`, method: 'submit' }
@@ -447,5 +594,26 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			devices.push({ id: dev.name, label: `${dev.name} (${dev.priip})` })
 		}
 		return devices
+	}
+
+	// Latest parsed status from each poll, or null until the first successful poll completes.
+	get dantePresets(): ChazyDantePresetResponse | null {
+		return this.#dantePreset
+	}
+
+	get mxsta(): ChazyMxStaResponse | null {
+		return this.#mxsta
+	}
+
+	get time(): ChazyTimeResponse | null {
+		return this.#time
+	}
+
+	get controlEvents(): ChazyControlEventResponse | null {
+		return this.#controlEvent
+	}
+
+	get controlEventLog(): ChazyControlEventLogResponse | null {
+		return this.#controlEventLog
 	}
 }

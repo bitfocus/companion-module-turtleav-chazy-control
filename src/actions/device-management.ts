@@ -51,7 +51,7 @@ export function getDeviceManagementActions(
 	const logger = createModuleLogger('Actions:DeviceManagement')
 
 	actions[ActionIdsDeviceManagement.Search] = {
-		name: 'Search Encoders/Decoders',
+		name: 'Device Management - Search Encoders/Decoders',
 		options: [],
 		callback: async (_event, context) => {
 			const msg = API.search()
@@ -59,7 +59,7 @@ export function getDeviceManagementActions(
 		},
 	}
 	actions[ActionIdsDeviceManagement.GetSearchStatus] = {
-		name: 'Get Search Status',
+		name: 'Device Management - Get Search Status',
 		options: [],
 		callback: async (_event, context) => {
 			const msg = API.getSearchStatus()
@@ -67,7 +67,7 @@ export function getDeviceManagementActions(
 		},
 	}
 	actions[ActionIdsDeviceManagement.SearchReset] = {
-		name: 'Reset Search',
+		name: 'Device Management - Reset Search',
 		options: [],
 		callback: async (_event, context) => {
 			const msg = API.searchReset()
@@ -75,7 +75,7 @@ export function getDeviceManagementActions(
 		},
 	}
 	actions[ActionIdsDeviceManagement.AddDeviceEncoder] = {
-		name: 'Add Encoder Device',
+		name: 'Device Management - Add Encoder Device',
 		options: [
 			{
 				id: 'dev',
@@ -102,7 +102,7 @@ export function getDeviceManagementActions(
 		},
 	}
 	actions[ActionIdsDeviceManagement.AddDeviceDecoder] = {
-		name: 'Add Decoder Device',
+		name: 'Device Management - Add Decoder Device',
 		options: [
 			{
 				id: 'dev',
@@ -129,7 +129,7 @@ export function getDeviceManagementActions(
 		},
 	}
 	actions[ActionIdsDeviceManagement.AddDeviceReset] = {
-		name: 'Reset Added Devices',
+		name: 'Device Management - Reset Added Devices',
 		options: [],
 		callback: async (_event, context) => {
 			const msg = API.addDeviceReset()
@@ -137,7 +137,7 @@ export function getDeviceManagementActions(
 		},
 	}
 	actions[ActionIdsDeviceManagement.AddAutoAll] = {
-		name: 'Add All Found Devices Automatically',
+		name: 'Device Management - Add All Found Devices Automatically',
 		options: [],
 		callback: async (_event, context) => {
 			const msg = API.addAutoAll()

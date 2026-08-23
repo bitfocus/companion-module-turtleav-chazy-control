@@ -3,12 +3,12 @@ import { Regex, type SomeCompanionConfigField } from '@companion-module/base'
 export type DeviceType = 'chazy control' | 'chazy control pro'
 
 export type ModuleConfig = {
-	model: 'chazy control' | 'chazy control pro'
+	model: DeviceType
 	host: string
 	port: number
-	device: DeviceType
 	user: string
 	interval: number
+	imageInterval: number
 }
 
 export function GetConfigFields(): SomeCompanionConfigField[] {
@@ -41,17 +41,6 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			default: 80,
 		},
 		{
-			type: 'dropdown',
-			id: 'device',
-			label: 'Device Type',
-			default: 'chazy control',
-			choices: [
-				{ id: 'chazy control', label: 'Chazy Control' },
-				{ id: 'chazy control pro', label: 'Chazy Control Pro' },
-			],
-			width: 4,
-		},
-		{
 			type: 'textinput',
 			id: 'user',
 			label: 'Username',
@@ -64,9 +53,20 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			id: 'interval',
 			label: 'Poll Interval (ms)',
 			default: 5000,
-			min: 100,
+			min: 200,
 			max: 60000,
 			width: 4,
+		},
+		{
+			type: 'number',
+			id: 'imageInterval',
+			label: 'Image Poll Interval (ms)',
+			default: 10000,
+			min: 200,
+			max: 60000,
+			width: 4,
+			description:
+				'How often Preview feedbacks refresh their captured image. Only runs while at least one Preview feedback is in use.',
 		},
 	]
 }

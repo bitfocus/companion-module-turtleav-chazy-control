@@ -24,7 +24,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	public config!: ModuleConfig // Setup in init()
 	#queue = new PQueue({ concurrency: 1, autoStart: true, interval: 10, intervalCap: 1, strict: true })
 	#controller = new AbortController()
-	public chazyControl: ChazyControl = new ChazyControl(this, 10000, this.#controller.signal)
+	public chazyControl: ChazyControl = new ChazyControl(this, 10000, 10000, this.#controller.signal)
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -48,7 +48,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#controller.abort('Config Updated')
 		this.#controller = new AbortController()
 		this.#queue.clear()
-		this.chazyControl = new ChazyControl(this, 10000, this.#controller.signal)
+
+		// Carry forward which feedbacks were expecting image polling, so replacing
+		// chazyControl doesn't silently stop their polling until Companion happens to
+		// recheck them for some other reason.
+		const previousFeedbacksToPoll = this.chazyControl.getFeedbacksToPoll()
+		this.chazyControl = new ChazyControl(this, 10000, this.config.imageInterval, this.#controller.signal)
+		for (const feedbackId of previousFeedbacksToPoll) {
+			this.chazyControl.addFeedbackToPoll(feedbackId)
+		}
+
 		this.chazyControl.on('dante_device_changed', () => {
 			this.updateCompanionBits()
 		})
@@ -72,7 +81,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	public async sendMsg(msg: Message & { method: 'get' }, signal?: AbortSignal): Promise<Record<string, unknown>>
 	public async sendMsg(msg: Message & { method: 'submit' }, signal?: AbortSignal): Promise<string | undefined>
-	public async sendMsg(msg: Message, signal?: AbortSignal): Promise<Record<string, unknown> | string | undefined> {
+	public async sendMsg(msg: Message & { method: 'capture' }, signal?: AbortSignal): Promise<Buffer>
+	public async sendMsg(
+		msg: Message,
+		signal?: AbortSignal,
+	): Promise<Record<string, unknown> | string | undefined | Buffer> {
 		const combinedSignal = signal ? AbortSignal.any([signal, this.#controller.signal]) : this.#controller.signal
 
 		const response = await this.#queue.add(
@@ -80,17 +93,25 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				let path = `http://${this.config.host}:${this.config.port}/cgi-bin/`
 				switch (msg.method) {
 					case 'get':
-						path += 'getjson.cgi?json='
+						path += 'getjson.cgi?json=' + msg.data
 						break
 					case 'submit':
-						path += 'submit?cmd='
+						path += 'submit?cmd=' + msg.data
+						break
+					case 'capture':
+						path += 'capture.cgi?hostip='
+						path += msg.ip
+						path += '&capwidth='
+						path += msg.width
+						path += '&time='
+						path += Date.now()
 						break
 					default: {
-						const _exhaustive: never = msg.method
-						throw new Error(`Unhandled method type: ${_exhaustive}`)
+						const _exhaustive: never = msg
+						throw new Error(`Unhandled method type: ${JSON.stringify(_exhaustive)}`)
 					}
 				}
-				path += msg.data
+
 				this.log('debug', `Sending: ${path}`)
 				const { statusCode, body } = await request(path, {
 					method: 'GET',
@@ -105,6 +126,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				if (statusCode < 200 || statusCode >= 300) {
 					await body.dump() // drain without parsing
 					throw new Error(`Unexpected status ${statusCode} for path: ${path}`)
+				}
+
+				if (msg.method === 'capture') {
+					return Buffer.from(await body.arrayBuffer())
 				}
 
 				const text = await body.text()
@@ -134,6 +159,21 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		)
 
 		return response
+	}
+
+	// Thin pass-throughs — the actual polling and cache live on chazyControl, since it
+	// already owns the device-polling lifecycle (recreated on config updates, torn down
+	// on the same AbortSignal). Kept here so feedback callbacks only need `instance`.
+	public addFeedbackToPoll(feedbackId: string): void {
+		this.chazyControl.addFeedbackToPoll(feedbackId)
+	}
+
+	public removeFeedbackToPoll(feedbackId: string): void {
+		this.chazyControl.removeFeedbackToPoll(feedbackId)
+	}
+
+	public async getCapturePreview(ip: string, width: number): Promise<string> {
+		return this.chazyControl.getCapturePreview(ip, width)
 	}
 
 	private updateActions(): void {

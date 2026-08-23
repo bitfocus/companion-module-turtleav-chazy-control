@@ -183,7 +183,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteName] = {
-		name: 'Set Dante Device Name',
+		name: 'Dante - Device Name',
 		options: [
 			danteDeviceOption,
 			{
@@ -201,7 +201,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteSampleRate] = {
-		name: 'Set Dante Sample Rate',
+		name: 'Dante - Sample Rate',
 		options: [
 			danteDeviceOption,
 			{
@@ -209,7 +209,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 				type: 'textinput',
 				label: 'Sample Rate',
 				default: '',
-				tooltip: 'Use "Get Dante Device Status" to see the sample rates supported by this device.',
+				tooltip: 'Use "Dante - Get Device Status" to see the sample rates supported by this device.',
 			},
 		],
 		callback: async (event, context) => {
@@ -219,7 +219,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteEncoding] = {
-		name: 'Set Dante Encoding',
+		name: 'Dante - Encoding',
 		options: [
 			danteDeviceOption,
 			{
@@ -227,7 +227,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 				type: 'textinput',
 				label: 'Encoding',
 				default: '',
-				tooltip: 'Use "Get Dante Device Status" to see the encodings supported by this device.',
+				tooltip: 'Use "Dante - Get Device Status" to see the encodings supported by this device.',
 			},
 		],
 		callback: async (event, context) => {
@@ -237,7 +237,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteTxChannelName] = {
-		name: 'Set Dante TX Channel Name',
+		name: 'Dante - TX Channel Name',
 		options: [
 			danteDeviceOption,
 			avOption,
@@ -270,7 +270,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.AddDanteTransmitFlow] = {
-		name: 'Add Dante Transmit Flow',
+		name: 'Dante - Add Transmit Flow',
 		options: [
 			danteDeviceOption,
 			avOption,
@@ -312,7 +312,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.DeleteDanteTransmitFlow] = {
-		name: 'Delete Dante Transmit Flow',
+		name: 'Dante - Delete Transmit Flow',
 		options: [
 			danteDeviceOption,
 			avOption,
@@ -333,7 +333,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteRxChannelName] = {
-		name: 'Set Dante RX Channel Name',
+		name: 'Dante - RX Channel Name',
 		options: [
 			danteDeviceOption,
 			avOption,
@@ -366,7 +366,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteSubscription] = {
-		name: 'Set Dante Subscription',
+		name: 'Dante - Subscription',
 		options: [
 			{
 				id: 'rxDev',
@@ -420,7 +420,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.SetDanteLatency] = {
-		name: 'Set Dante Latency',
+		name: 'Dante - Latency',
 		options: [
 			danteDeviceOption,
 			{
@@ -428,7 +428,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 				type: 'textinput',
 				label: 'Latency',
 				default: '',
-				tooltip: 'Use "Get Dante Device Status" to see the latencies supported by this device.',
+				tooltip: 'Use "Dante - Get Device Status" to see the latencies supported by this device.',
 			},
 		],
 		callback: async (event, context) => {
@@ -439,7 +439,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	// Chazy Control Pro only - no equivalent commands on the (non-Pro) Chazy Control
 	if (isPro) {
 		actions[ActionIdsDanteControl.SetDantePreferred] = {
-			name: 'Set Dante Preferred',
+			name: 'Dante - Preferred',
 			options: [
 				danteDeviceOption,
 				{
@@ -460,7 +460,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.SetDanteAes67] = {
-			name: 'Set Dante AES67',
+			name: 'Dante - AES67',
 			options: [
 				danteDeviceOption,
 				{
@@ -481,7 +481,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.SetDanteAes67Prefix] = {
-			name: 'Set Dante AES67 Prefix',
+			name: 'Dante - AES67 Prefix',
 			options: [
 				danteDeviceOption,
 				{
@@ -500,7 +500,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.ClearDanteConfig] = {
-			name: 'Clear Dante Configuration',
+			name: 'Dante - Clear Configuration',
 			options: [
 				danteDeviceOption,
 				{
@@ -521,7 +521,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.SetDanteStaticIp] = {
-			name: 'Set Dante Static IP',
+			name: 'Dante - Static IP',
 			options: [
 				danteDeviceOption,
 				{
@@ -576,7 +576,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.SetDanteDynamicIp] = {
-			name: 'Set Dante Dynamic IP (DHCP)',
+			name: 'Dante - Dynamic IP (DHCP)',
 			options: [
 				danteDeviceOption,
 				{
@@ -596,7 +596,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.RebootDanteDevice] = {
-			name: 'Reboot Dante Device',
+			name: 'Dante - Reboot Device',
 			options: [
 				danteDeviceOption,
 				{
@@ -617,7 +617,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsDanteControl.ClearDanteEvents] = {
-			name: 'Clear Dante Events',
+			name: 'Dante - Clear Events',
 			options: [],
 			callback: async (_event, context) => {
 				const msg = API.clearDanteEvents()
@@ -627,7 +627,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.GetDanteDeviceStatus] = {
-		name: 'Get Dante Device Status',
+		name: 'Dante - Get Device Status',
 		options: [danteDeviceOption],
 		callback: async (event, context) => {
 			const msg = API.getDanteDeviceStatus(event.options.devname)
@@ -636,7 +636,7 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 	}
 	// Supported on Chazy Control (non-Pro)
 	actions[ActionIdsDanteControl.DanteDeviceSearch] = {
-		name: 'Search Dante Devices',
+		name: 'Dante - Search Devices',
 		options: [],
 		callback: async (_event, context) => {
 			const msg = API.danteDeviceSearch()

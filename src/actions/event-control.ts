@@ -126,7 +126,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 	// Chazy Control Pro only - the (non-Pro) Chazy Control API has no Event Control commands.
 	if (instance.config.model === 'chazy control pro') {
 		actions[ActionIdsEventControl.CreateEvent] = {
-			name: 'Create Event',
+			name: 'Event - Create',
 			options: [EVENT_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.createEvent(event.options.hdl)
@@ -134,7 +134,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.DeleteEvent] = {
-			name: 'Delete Event',
+			name: 'Event - Delete',
 			options: [EVENT_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.deleteEvent(event.options.hdl)
@@ -142,7 +142,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventName] = {
-			name: 'Set Event Name',
+			name: 'Event - Name',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -158,7 +158,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventType] = {
-			name: 'Set Event Type',
+			name: 'Event - Type',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -176,7 +176,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventAddress] = {
-			name: 'Set Event Address',
+			name: 'Event - Address',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -193,7 +193,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventAddressWithPort] = {
-			name: 'Set Event Address With Port',
+			name: 'Event - Address With Port',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -235,7 +235,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventDataAscii] = {
-			name: 'Set Event Data (ASCII)',
+			name: 'Event - Data (ASCII)',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -252,7 +252,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventDataHex] = {
-			name: 'Set Event Data (HEX)',
+			name: 'Event - Data (HEX)',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -270,7 +270,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventParams] = {
-			name: 'Set Event Params',
+			name: 'Event - Params',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -287,7 +287,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventRequest] = {
-			name: 'Set Event Request',
+			name: 'Event - Request',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -304,7 +304,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.SetEventResendDelay] = {
-			name: 'Set Event Resend Delay',
+			name: 'Event - Resend Delay',
 			options: [
 				EVENT_HANDLE_OPTION,
 				{
@@ -323,7 +323,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.StartEvent] = {
-			name: 'Start Event',
+			name: 'Event - Start',
 			options: [EVENT_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.startEvent(event.options.hdl)
@@ -331,7 +331,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.StopEvent] = {
-			name: 'Stop Event',
+			name: 'Event - Stop',
 			options: [EVENT_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.stopEvent(event.options.hdl)
@@ -339,7 +339,7 @@ export function getEventControlActions(instance: ModuleInstance): CompanionActio
 			},
 		}
 		actions[ActionIdsEventControl.GetEventStatus] = {
-			name: 'Get Event Status',
+			name: 'Event - Get Status',
 			options: [],
 			callback: async (_event, context) => {
 				const msg = API.getEventStatus()

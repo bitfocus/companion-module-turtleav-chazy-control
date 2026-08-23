@@ -59,7 +59,7 @@ export function getDantePresetControlActions(
 	// Chazy Control Pro only - the (non-Pro) Chazy Control API has no Dante Preset commands.
 	if (instance.config.model === 'chazy control pro') {
 		actions[ActionIdsDantePresetControl.CreateDantePreset] = {
-			name: 'Create Dante Preset',
+			name: 'Dante Preset - Create',
 			options: [PRESET_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.createDantePreset(event.options.hdl)
@@ -67,7 +67,7 @@ export function getDantePresetControlActions(
 			},
 		}
 		actions[ActionIdsDantePresetControl.DeleteDantePreset] = {
-			name: 'Delete Dante Preset',
+			name: 'Dante Preset - Delete',
 			options: [PRESET_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.deleteDantePreset(event.options.hdl)
@@ -75,7 +75,7 @@ export function getDantePresetControlActions(
 			},
 		}
 		actions[ActionIdsDantePresetControl.SetDantePresetName] = {
-			name: 'Set Dante Preset Name',
+			name: 'Dante Preset - Name',
 			options: [
 				PRESET_HANDLE_OPTION,
 				{
@@ -92,7 +92,7 @@ export function getDantePresetControlActions(
 			},
 		}
 		actions[ActionIdsDantePresetControl.ApplyDantePreset] = {
-			name: 'Apply Dante Preset',
+			name: 'Dante Preset - Apply',
 			options: [PRESET_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.applyDantePreset(event.options.hdl)
@@ -100,7 +100,7 @@ export function getDantePresetControlActions(
 			},
 		}
 		actions[ActionIdsDantePresetControl.GetDantePresetStatus] = {
-			name: 'Get Dante Preset Status',
+			name: 'Dante Preset - Get Status',
 			options: [PRESET_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.getDantePresetStatus(event.options.hdl)
