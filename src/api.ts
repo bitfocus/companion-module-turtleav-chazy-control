@@ -473,7 +473,7 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 	// Commands For Dante Preset Control
 
 	static getDantePresets(): Message & { method: 'get' } {
-		return { data: 'dante_preset', method: 'get' }
+		return { data: 'dantepreset', method: 'get' }
 	}
 
 	static createDantePreset(hdl: number): Message & { method: 'submit' } {

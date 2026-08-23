@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * Chazy Control – Dante preset list response schema (`getjson.cgi` — `dante_preset` section)
+ * Chazy Control – Dante preset list response schema (`getjson.cgi` — `dantepreset` section)
  */
 
 const DantePresetSchema = z.object({

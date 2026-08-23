@@ -129,7 +129,7 @@ function mockAllStatusQueries(sendMsg: SendMsgMock): void {
 		switch (msg.data) {
 			case 'dante':
 				return VALID_DANTE_RESPONSE
-			case 'dante_preset':
+			case 'dantepreset':
 				return VALID_DANTE_PRESET_RESPONSE
 			case 'mxsta':
 				return VALID_MXSTA_RESPONSE
@@ -230,7 +230,7 @@ describe('ChazyControl static command builders', () => {
 		})
 
 		it('getDantePresets', () => {
-			expect(ChazyControl.getDantePresets()).toEqual({ data: 'dante_preset', method: 'get' })
+			expect(ChazyControl.getDantePresets()).toEqual({ data: 'dantepreset', method: 'get' })
 		})
 
 		it('getMxSta', () => {
@@ -596,7 +596,7 @@ describe('ChazyControl polling', () => {
 			if (msg.data === 'mxsta') throw new Error('device unreachable')
 			return {
 				dante: VALID_DANTE_RESPONSE,
-				dante_preset: VALID_DANTE_PRESET_RESPONSE,
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
 				time: VALID_TIME_RESPONSE,
 				controlevent: VALID_CONTROL_EVENT_RESPONSE,
 				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
@@ -620,7 +620,7 @@ describe('ChazyControl polling', () => {
 			if (msg.data === 'time') return { not: 'a valid time response' }
 			return {
 				dante: VALID_DANTE_RESPONSE,
-				dante_preset: VALID_DANTE_PRESET_RESPONSE,
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
 				mxsta: VALID_MXSTA_RESPONSE,
 				controlevent: VALID_CONTROL_EVENT_RESPONSE,
 				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
@@ -646,7 +646,7 @@ describe('ChazyControl polling', () => {
 				return { ...VALID_DANTE_RESPONSE, dante: [{ ...emptyDanteDevice(), name: danteDeviceName }] }
 			}
 			return {
-				dante_preset: VALID_DANTE_PRESET_RESPONSE,
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
 				mxsta: VALID_MXSTA_RESPONSE,
 				time: VALID_TIME_RESPONSE,
 				controlevent: VALID_CONTROL_EVENT_RESPONSE,
