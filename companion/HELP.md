@@ -6,7 +6,8 @@ Companion module for the Turtle AV Chazy Control and Chazy Control Pro.
 
 - **Model** — Chazy Control or Chazy Control Pro. Some actions are only available on Pro.
 - **Hostname** — IP address or hostname of the device.
-- **Port** — HTTP port the device's web interface listens on.
+- **Protocol** — HTTP or HTTPS.
+- **Allow Insecure Connections** — Accepts self-signed or otherwise untrusted TLS certificates.
 - **Username** — must be an admin-level account.
 - **Poll Interval (ms)** — how often the module polls the device for status.
 - **Image Poll Interval (ms)** — how often Preview feedbacks refresh their captured image. Only runs while at least one Preview feedback is in use.

@@ -45,6 +45,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
 		this.config = config
+		// Global to the whole Node process, not just this module's own requests — undici
+		// (like Node's built-in https) reads this at TLS-handshake time to decide whether
+		// to accept certificates it can't verify (e.g. self-signed).
+		process.env.NODE_TLS_REJECT_UNAUTHORIZED = config.allowInsecure ? '0' : '1'
 		this.#controller.abort('Config Updated')
 		this.#controller = new AbortController()
 		this.#queue.clear()
@@ -90,7 +94,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		const response = await this.#queue.add(
 			async ({ signal: taskSignal }) => {
-				let path = `http://${this.config.host}:${this.config.port}/cgi-bin/`
+				let path = `${this.config.protocol}://${this.config.host}/cgi-bin/`
 				switch (msg.method) {
 					case 'get':
 						path += 'getjson.cgi?json=' + msg.data

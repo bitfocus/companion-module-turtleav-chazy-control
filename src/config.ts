@@ -5,7 +5,8 @@ export type DeviceType = 'chazy control' | 'chazy control pro'
 export type ModuleConfig = {
 	model: DeviceType
 	host: string
-	port: number
+	protocol: 'http' | 'https'
+	allowInsecure: boolean
 	user: string
 	interval: number
 	imageInterval: number
@@ -32,13 +33,25 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			regex: Regex.HOSTNAME,
 		},
 		{
-			type: 'number',
-			id: 'port',
-			label: 'Port',
+			type: 'dropdown',
+			id: 'protocol',
+			label: 'Protocol',
+			default: 'http',
+			choices: [
+				{ id: 'http', label: 'HTTP' },
+				{ id: 'https', label: 'HTTPS' },
+			],
 			width: 4,
-			min: 1,
-			max: 65535,
-			default: 80,
+			disableAutoExpression: true,
+		},
+		{
+			type: 'checkbox',
+			id: 'allowInsecure',
+			label: 'Allow Insecure Connections',
+			default: false,
+			width: 4,
+			description: 'Accept self-signed or otherwise untrusted TLS certificates when using HTTPS.',
+			isVisibleExpression: '$(options:protocol) == "https"',
 		},
 		{
 			type: 'textinput',
@@ -65,8 +78,7 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			min: 200,
 			max: 60000,
 			width: 4,
-			description:
-				'How often Preview feedbacks refresh their captured image. Only runs while at least one Preview feedback is in use.',
+			description: 'How often Preview feedbacks refresh their captured image.',
 		},
 	]
 }
