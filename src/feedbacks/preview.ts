@@ -21,6 +21,7 @@ export const DEFAULT_CAPTURE_WIDTH = 240
 export function getPreviewFeedbacks(instance: ModuleInstance): CompanionFeedbackDefinitions<FeedbackSchemaPreview> {
 	const feedbacks: Partial<CompanionFeedbackDefinitions<FeedbackSchemaPreview>> = {}
 	const logger = createModuleLogger('Feedbacks:Preview')
+	const deviceChoices = instance.chazyControl.getDecoderEncoderIpChoices()
 
 	feedbacks[FeedbackIdsPreview.Preview] = {
 		name: 'Preview',
@@ -30,8 +31,8 @@ export function getPreviewFeedbacks(instance: ModuleInstance): CompanionFeedback
 				id: 'device',
 				type: 'dropdown',
 				label: 'Device',
-				choices: [], // TODO: populate with known device IPs
-				default: '',
+				choices: deviceChoices,
+				default: deviceChoices[0]?.id ?? '',
 				allowCustom: true,
 				expressionDescription: 'Return IP of device (encoder or decoder)',
 			},

@@ -82,12 +82,20 @@ export type DecoderSwitchSignal = 'ALL' | 'VIDEO' | 'AUDIO' | 'IR' | 'RS232' | '
 export interface ChazyControlEvents {
 	/** Emitted whenever the dante devices found on the network change. */
 	dante_device_changed: []
+	/** Emitted whenever an encoder's name or IP changes, or encoders are added/removed. */
+	encoder_device_changed: []
+	/** Emitted whenever a decoder's name or IP changes, or decoders are added/removed. */
+	decoder_device_changed: []
 }
 
-function areDeviceNameSetsEqual(a: string[], b: string[]): boolean {
+function areDeviceSetsEqual(a: string[], b: string[]): boolean {
 	if (a.length !== b.length) return false
 	const setA = new Set(a)
-	return b.every((name) => setA.has(name))
+	return b.every((entry) => setA.has(entry))
+}
+
+function toDeviceSignature(device: { name: string; ip: string }): string {
+	return `${device.name}|${device.ip}`
 }
 
 export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
@@ -142,7 +150,7 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 
 			this.#dante = parsed
 
-			if (!areDeviceNameSetsEqual(newNames, oldNames)) {
+			if (!areDeviceSetsEqual(newNames, oldNames)) {
 				this.emit('dante_device_changed')
 			}
 		})
@@ -155,7 +163,19 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			},
 		)
 		await this.#pollSchema('matrix status', ChazyControl.getMxSta(), ChazyMxStaResponseSchema, (parsed) => {
+			const newEncoders = parsed.in.map(toDeviceSignature)
+			const oldEncoders = this.#mxsta?.in.map(toDeviceSignature) ?? []
+			const newDecoders = parsed.out.map(toDeviceSignature)
+			const oldDecoders = this.#mxsta?.out.map(toDeviceSignature) ?? []
+
 			this.#mxsta = parsed
+
+			if (!areDeviceSetsEqual(newEncoders, oldEncoders)) {
+				this.emit('encoder_device_changed')
+			}
+			if (!areDeviceSetsEqual(newDecoders, oldDecoders)) {
+				this.emit('decoder_device_changed')
+			}
 		})
 		await this.#pollSchema('time', ChazyControl.getTime(), ChazyTimeResponseSchema, (parsed) => {
 			this.#time = parsed
@@ -594,6 +614,28 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			devices.push({ id: dev.name, label: `${dev.name} (${dev.priip})` })
 		}
 		return devices
+	}
+
+	getDecoderEncoderIpChoices(): DropdownChoice<string>[] {
+		if (!this.#mxsta) return []
+		const devices: DropdownChoice<string>[] = []
+		for (const enc of this.#mxsta.in) {
+			devices.push({ id: enc.ip, label: `ENC: ${enc.name} (${enc.ip})` })
+		}
+		for (const dec of this.#mxsta.out) {
+			devices.push({ id: dec.ip, label: `DEC: ${dec.name} (${dec.ip})` })
+		}
+		return devices
+	}
+
+	getEncoderChoicesById(): DropdownChoice<number>[] {
+		if (!this.#mxsta) return []
+		return this.#mxsta.in.map((enc) => ({ id: enc.id, label: enc.name }))
+	}
+
+	getDecoderChoicesById(): DropdownChoice<number>[] {
+		if (!this.#mxsta) return []
+		return this.#mxsta.out.map((dec) => ({ id: dec.id, label: dec.name }))
 	}
 
 	// Latest parsed status from each poll, or null until the first successful poll completes.

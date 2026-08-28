@@ -9,6 +9,7 @@ import type { Message } from './types.js'
 import ChazyControl from './api.js'
 import PQueue from 'p-queue'
 import { Agent, request } from 'undici'
+import { debounce } from 'es-toolkit'
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -26,6 +27,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	#controller = new AbortController()
 	#dispatcher: Agent | undefined
 	public chazyControl: ChazyControl = new ChazyControl(this, 10000, 10000, this.#controller.signal)
+	// dante/encoder/decoder device-changed events can all fire out of the same poll cycle —
+	// debounce so a burst of them only triggers one rebuild instead of one per event.
+	#debouncedUpdateCompanionBits = debounce(() => this.updateCompanionBits(), 1000)
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -66,9 +70,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			this.chazyControl.addFeedbackToPoll(feedbackId)
 		}
 
-		this.chazyControl.on('dante_device_changed', () => {
-			this.updateCompanionBits()
-		})
+		this.chazyControl.on('dante_device_changed', () => this.#debouncedUpdateCompanionBits())
+		this.chazyControl.on('encoder_device_changed', () => this.#debouncedUpdateCompanionBits())
+		this.chazyControl.on('decoder_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.updateStatus(InstanceStatus.Ok)
 		this.updateCompanionBits()
 

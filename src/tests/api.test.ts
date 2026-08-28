@@ -673,6 +673,98 @@ describe('ChazyControl polling', () => {
 		await flushMicrotasks()
 		expect(onChanged).toHaveBeenCalledTimes(2)
 	})
+
+	it('emits encoder_device_changed only when the encoder set actually changes', async () => {
+		vi.useFakeTimers()
+		const { instance, sendMsg } = createMockInstance()
+		let encoderName = 'Encoder A'
+		sendMsg.mockImplementation(async (msg) => {
+			if (msg.method === 'capture') throw new Error('Unexpected capture request')
+			if (msg.data === 'mxsta') {
+				return {
+					...VALID_MXSTA_RESPONSE,
+					in: [{ ...emptyEncoderStatus(), name: encoderName, ip: '169.254.3.140' }],
+				}
+			}
+			return {
+				dante: VALID_DANTE_RESPONSE,
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
+				time: VALID_TIME_RESPONSE,
+				controlevent: VALID_CONTROL_EVENT_RESPONSE,
+				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
+			}[msg.data]
+		})
+		const chazyControl = new ChazyControl(instance, 1000, 1000)
+		const onEncoderChanged = vi.fn()
+		const onDecoderChanged = vi.fn()
+		chazyControl.on('encoder_device_changed', onEncoderChanged)
+		chazyControl.on('decoder_device_changed', onDecoderChanged)
+
+		// First poll: nothing -> ["Encoder A"] is a change.
+		chazyControl.startPolling()
+		await flushMicrotasks()
+		expect(onEncoderChanged).toHaveBeenCalledTimes(1)
+
+		// Same encoder set on the next cycle — no further emit.
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onEncoderChanged).toHaveBeenCalledTimes(1)
+
+		// Encoder name changes — emits again.
+		encoderName = 'Encoder B'
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onEncoderChanged).toHaveBeenCalledTimes(2)
+
+		// Never mistaken for a decoder change.
+		expect(onDecoderChanged).not.toHaveBeenCalled()
+	})
+
+	it('emits decoder_device_changed only when the decoder set actually changes', async () => {
+		vi.useFakeTimers()
+		const { instance, sendMsg } = createMockInstance()
+		let decoderIp = '169.254.2.58'
+		sendMsg.mockImplementation(async (msg) => {
+			if (msg.method === 'capture') throw new Error('Unexpected capture request')
+			if (msg.data === 'mxsta') {
+				return {
+					...VALID_MXSTA_RESPONSE,
+					out: [{ ...emptyDecoderStatus(), name: 'Decoder A', ip: decoderIp }],
+				}
+			}
+			return {
+				dante: VALID_DANTE_RESPONSE,
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
+				time: VALID_TIME_RESPONSE,
+				controlevent: VALID_CONTROL_EVENT_RESPONSE,
+				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
+			}[msg.data]
+		})
+		const chazyControl = new ChazyControl(instance, 1000, 1000)
+		const onEncoderChanged = vi.fn()
+		const onDecoderChanged = vi.fn()
+		chazyControl.on('encoder_device_changed', onEncoderChanged)
+		chazyControl.on('decoder_device_changed', onDecoderChanged)
+
+		// First poll: nothing -> one decoder is a change.
+		chazyControl.startPolling()
+		await flushMicrotasks()
+		expect(onDecoderChanged).toHaveBeenCalledTimes(1)
+
+		// Same decoder on the next cycle — no further emit.
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onDecoderChanged).toHaveBeenCalledTimes(1)
+
+		// IP changes (name unchanged) — still counts as a change.
+		decoderIp = '169.254.2.59'
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onDecoderChanged).toHaveBeenCalledTimes(2)
+
+		// Never mistaken for an encoder change.
+		expect(onEncoderChanged).not.toHaveBeenCalled()
+	})
 })
 
 describe('ChazyControl feedback image polling', () => {
@@ -886,5 +978,235 @@ function emptyDanteDevice() {
 		rxchn: [],
 		txchn: [],
 		txflow: [],
+	}
+}
+
+function emptyEncoderStatus() {
+	return {
+		domainid: 0,
+		id: 0,
+		name: '',
+		time: [0, 0, 0] as [number, number, number],
+		state: '',
+		ol: 1,
+		active: 1,
+		network: 1,
+		ver: '',
+		model: '',
+		hw_mode: '',
+		sw_mode: '',
+		devtype: '',
+		auth: 0,
+		remainday: 0,
+		UID: '',
+		flash_size: 0,
+		board_revision: 0,
+		dante_en: 0,
+		multicast: 0,
+		bridge: 0,
+		mcu_ver: '',
+		im: 0,
+		ip: '',
+		gw: '',
+		sm: '',
+		mac: '',
+		dvlan: 0,
+		dvtag: 0,
+		lan2_im: 0,
+		lan2_ip: '',
+		lan2_gw: '',
+		lan2_sm: '',
+		asel: 0,
+		afr: 0,
+		license: 0,
+		em: 0,
+		ei: 0,
+		edidmax: 0,
+		resolution: '',
+		color: '',
+		depth: '',
+		hdcp: '',
+		aud: 0,
+		audstream: 0,
+		sig: 0,
+		conn: '',
+		arccap: 0,
+		discec: 0,
+		isp: 0,
+		led: 0,
+		fplock: 0,
+		sgen: 0,
+		sgbr: 0,
+		sgbs: 0,
+		sgpa: 0,
+		sgsb: 0,
+		profile: 0,
+		usb: 0,
+		udatamode: 0,
+		vsrc: 0,
+		vauto: 0,
+		fan: 0,
+		lanmode: 0,
+		irmode: 0,
+		ircable: 0,
+		netmode: 0,
+		arcmode: 0,
+		iovoltage: 0,
+		io1dir: 0,
+		io2dir: 0,
+		io1: 0,
+		io2: 0,
+		relay1: 0,
+		relay2: 0,
+		ssenable: 0,
+		ssmainurl: '',
+		ssmainenctype: '',
+		ssmainbitrate: '',
+		ssmainfps: '',
+		ssmaingop: '',
+		ssmainprofile: '',
+		ssmainrcmode: '',
+		ssmainres: '',
+		sssuburl: '',
+		sssubenctype: '',
+		sssubbitrate: '',
+		sssubfps: '',
+		sssubgop: '',
+		sssubprofile: '',
+		sssubrcmode: '',
+		sssubres: '',
+		ssgateway: '',
+		ssip: '',
+		ssmask: '',
+		ssipmode: '',
+		ssmac: '',
+		ssversion: '',
+		ssworkmode: '',
+		ssvlan: 0,
+	}
+}
+
+function emptyDecoderStatus() {
+	return {
+		domainid: 0,
+		id: 0,
+		name: '',
+		time: [0, 0, 0] as [number, number, number],
+		state: '',
+		ol: 1,
+		active: 1,
+		network: 1,
+		ver: '',
+		model: '',
+		hw_mode: '',
+		sw_mode: '',
+		devtype: '',
+		auth: 0,
+		remainday: 0,
+		UID: '',
+		flash_size: 0,
+		dante_en: 0,
+		multicast: 0,
+		ull: 0,
+		bridge: 0,
+		das: 0,
+		mcu_ver: '',
+		im: 0,
+		ip: '',
+		gw: '',
+		sm: '',
+		mac: '',
+		dvlan: 0,
+		dvtag: 0,
+		lan2_im: 0,
+		lan2_ip: '',
+		lan2_gw: '',
+		lan2_sm: '',
+		fr: 0,
+		vsel: 0,
+		asel: 0,
+		rsel: 0,
+		ssel: 0,
+		usel: 0,
+		csel: 0,
+		msel: 0,
+		vfr: 0,
+		afr: 0,
+		rfr: 0,
+		sfr: 0,
+		ufr: 0,
+		cfr: 0,
+		vwen: 0,
+		om: 0,
+		sig: 0,
+		conn: '',
+		snkinfospt: 0,
+		preferred: '',
+		hdcpcap: '',
+		arccap: 0,
+		earcen: 0,
+		vw: 0,
+		hdr: 0,
+		vwrow: 0,
+		vwcolumn: 0,
+		vwhpos: 0,
+		vwvpos: 0,
+		rotate: 0,
+		res: 0,
+		resmax: 0,
+		hactive: 0,
+		hfp: 0,
+		hsync: 0,
+		hbp: 0,
+		htotal: 0,
+		vactive: 0,
+		vfp: 0,
+		vsync: 0,
+		vbp: 0,
+		vtotal: 0,
+		refresh: 0,
+		color: 0,
+		hpolarity: 0,
+		vpolarity: 0,
+		dclk: 0,
+		dclk_ntsc: 0,
+		colorspace: 0,
+		csspt: 0,
+		discec: 0,
+		osp: 0,
+		txout: 0,
+		black: 0,
+		pause: 0,
+		autoon: 0,
+		led: 0,
+		fplock: 0,
+		sgen: 0,
+		sgbr: 0,
+		sgbs: 0,
+		sgpa: 0,
+		sgsb: 0,
+		lanmode: 0,
+		irmode: 0,
+		ircable: 0,
+		netmode: 0,
+		arcmode: 0,
+		iovoltage: 0,
+		io1dir: 0,
+		io2dir: 0,
+		io1: 0,
+		io2: 0,
+		relay1: 0,
+		relay2: 0,
+		opten: 0,
+		osd: 0,
+		osdcolor: 0,
+		osdinfo: 0,
+		usboip: 0,
+		udatamode: 0,
+		usbdata: '',
+		audstream: 0,
+		license: 0,
+		hotkey: [],
+		ssmainurl: '',
 	}
 }

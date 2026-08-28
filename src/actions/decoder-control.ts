@@ -40,29 +40,31 @@ export function getDecoderControlActions(
 ): CompanionActionDefinitions<ActionSchemaDecoderControl> {
 	const actions: Partial<CompanionActionDefinitions<ActionSchemaDecoderControl>> = {}
 	const logger = createModuleLogger('Actions:DecoderControl')
+	const decoderChoices = instance.chazyControl.getDecoderChoicesById()
+	const encoderChoices: DropdownChoice<number>[] = [
+		{ id: 0, label: 'None (No Source / Follow Mode)' },
+		...instance.chazyControl.getEncoderChoicesById(),
+	]
+	const decoderOption = {
+		id: 'dec' as const,
+		type: 'dropdown' as const,
+		label: 'Decoder',
+		choices: decoderChoices,
+		default: decoderChoices[0]?.id ?? 1,
+	}
 
 	actions[ActionIdsDecoderControl.SwitchDecoder] = {
 		name: 'Decoder - Switch',
 		options: [
-			{
-				id: 'dec',
-				type: 'number',
-				label: 'Decoder',
-				default: 1,
-				min: 1,
-				max: 999,
-				asInteger: true,
-			},
+			decoderOption,
 			{
 				id: 'enc',
-				type: 'number',
+				type: 'dropdown',
 				label: 'Encoder',
-				default: 1,
-				min: 0,
-				max: 999,
-				asInteger: true,
+				choices: encoderChoices,
+				default: 0,
 				tooltip:
-					'0 switches "All" to no source, or returns a single signal type (Video/Audio/IR/RS232/USB/CEC/Media) to follow mode.',
+					'None (0) switches "All" to no source, or returns a single signal type (Video/Audio/IR/RS232/USB/CEC/Media) to follow mode.',
 			},
 			{
 				id: 'signal',
@@ -82,15 +84,7 @@ export function getDecoderControlActions(
 	actions[ActionIdsDecoderControl.SetDecoderUsbData] = {
 		name: 'Decoder - USB Data',
 		options: [
-			{
-				id: 'dec',
-				type: 'number',
-				label: 'Decoder',
-				default: 1,
-				min: 1,
-				max: 999,
-				asInteger: true,
-			},
+			decoderOption,
 			{
 				id: 'state',
 				type: 'dropdown',

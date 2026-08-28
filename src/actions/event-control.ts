@@ -1,4 +1,9 @@
-import { type CompanionActionDefinitions, type DropdownChoice, createModuleLogger } from '@companion-module/base'
+import {
+	type CompanionActionDefinitions,
+	type DropdownChoice,
+	createModuleLogger,
+	type CompanionInputFieldNumber,
+} from '@companion-module/base'
 import type ModuleInstance from '../main.js'
 import API, { EVENT_TYPES, type EventType } from '../api.js'
 import { ensureAllActionKeys } from './utils.js'
@@ -13,7 +18,7 @@ const EVENT_HANDLE_OPTION = {
 	min: 1,
 	max: 256,
 	asInteger: true,
-}
+} as const satisfies CompanionInputFieldNumber
 
 const EVENT_TYPE_CHOICES: DropdownChoice<EventType>[] = (Object.keys(EVENT_TYPES) as EventType[]).map((type) => ({
 	id: type,
