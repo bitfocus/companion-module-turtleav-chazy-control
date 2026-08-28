@@ -8,7 +8,7 @@ import { UpdatePresets } from './presets.js'
 import type { Message } from './types.js'
 import ChazyControl from './api.js'
 import PQueue from 'p-queue'
-import { request } from 'undici'
+import { Agent, request } from 'undici'
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -24,6 +24,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	public config!: ModuleConfig // Setup in init()
 	#queue = new PQueue({ concurrency: 1, autoStart: true, interval: 10, intervalCap: 1, strict: true })
 	#controller = new AbortController()
+	#dispatcher: Agent | undefined
 	public chazyControl: ChazyControl = new ChazyControl(this, 10000, 10000, this.#controller.signal)
 
 	constructor(internal: unknown) {
@@ -32,6 +33,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	async init(config: ModuleConfig): Promise<void> {
 		this.config = config
+		this.updateDispatcher()
 
 		this.updateStatus(InstanceStatus.Connecting)
 
@@ -41,14 +43,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	async destroy(): Promise<void> {
 		this.log('debug', `destroy ${this.id}:${this.label}`)
 		this.#controller.abort('Destroying module')
+		await this.#dispatcher?.close()
+		this.#dispatcher = undefined
 	}
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
 		this.config = config
-		// Global to the whole Node process, not just this module's own requests — undici
-		// (like Node's built-in https) reads this at TLS-handshake time to decide whether
-		// to accept certificates it can't verify (e.g. self-signed).
+		// Global to the whole Node process, not just this module's own requests — some
+		// TLS paths outside undici's own dispatcher may still fall back to this.
 		process.env.NODE_TLS_REJECT_UNAUTHORIZED = config.allowInsecure ? '0' : '1'
+		this.updateDispatcher()
 		this.#controller.abort('Config Updated')
 		this.#controller = new AbortController()
 		this.#queue.clear()
@@ -69,6 +73,17 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.updateCompanionBits()
 
 		this.chazyControl.startPolling()
+	}
+
+	// Rebuilds the undici dispatcher for the current config. Only needed to opt out of TLS
+	// verification — otherwise `undefined` leaves undici on its global dispatcher.
+	private updateDispatcher(): void {
+		const previous = this.#dispatcher
+		this.#dispatcher =
+			this.config.protocol === 'https' && this.config.allowInsecure
+				? new Agent({ connect: { rejectUnauthorized: false } })
+				: undefined
+		void previous?.close()
 	}
 
 	// Return config fields for web config
@@ -120,6 +135,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				const { statusCode, body } = await request(path, {
 					method: 'GET',
 					signal: taskSignal,
+					dispatcher: this.#dispatcher,
 					headers: {
 						Accept: 'application/json, text/plain, */*',
 						Connection: 'keep-alive',
