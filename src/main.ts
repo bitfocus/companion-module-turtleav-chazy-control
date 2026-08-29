@@ -154,7 +154,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				}
 
 				if (msg.method === 'capture') {
-					return Buffer.from(await body.arrayBuffer())
+					const captureBuffer = Buffer.from(await body.arrayBuffer())
+					if (captureBuffer.length === 0) {
+						// The device returns 200 + Content-Type: image/jpeg with an empty body when
+						// it has nothing to capture (e.g. no active video signal on that encoder).
+						throw new Error(`Empty capture response from ${path} — device likely has no active signal`)
+					}
+					return captureBuffer
 				}
 
 				const text = await body.text()

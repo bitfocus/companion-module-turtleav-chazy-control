@@ -5,7 +5,10 @@ import type {
 	CompanionPresetDefinitions,
 	CompanionPresetSection,
 } from '@companion-module/base'
+import { createModuleLogger } from '@companion-module/base'
 import { FeedbackIdsPreview } from './feedbacks/preview.js'
+
+const logger = createModuleLogger('Presets')
 
 function buildDevicePreviewPreset(label: string, ip: string): CompanionLayeredButtonPresetDefinition<ModuleSchema> {
 	return {
@@ -77,6 +80,8 @@ export function UpdatePresets(self: ModuleInstance): void {
 			],
 		},
 	]
+
+	logger.info(`Setting ${encoderPresetIds.length + decoderPresetIds.length} preset definitions`)
 
 	self.setPresetDefinitions(structure, presets)
 }
