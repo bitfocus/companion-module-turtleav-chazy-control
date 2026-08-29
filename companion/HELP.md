@@ -79,4 +79,4 @@ Companion module for the Turtle AV Chazy Control and Chazy Control Pro.
 ### Feedback
 
 - **Preview** — captures a still image from a device on the network and returns it as a value, so it can be shown on a button. Set the `Device` option to the IP address of the device to preview.
-  - Use the **Device Preview** preset for a ready-made button — it wires the feedback's captured image straight onto the button via a local variable, with no extra style configuration needed.
+  - The **Encoders**/**Decoders** presets give a ready-made button per discovered device, already pointed at that device's IP — it wires the feedback's captured image straight onto the button via a local variable, with no extra style configuration needed.

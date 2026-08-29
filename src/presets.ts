@@ -1,30 +1,16 @@
 import type { ModuleSchema } from './main.js'
 import type ModuleInstance from './main.js'
-import type { CompanionPresetDefinitions, CompanionPresetSection } from '@companion-module/base'
+import type {
+	CompanionLayeredButtonPresetDefinition,
+	CompanionPresetDefinitions,
+	CompanionPresetSection,
+} from '@companion-module/base'
 import { FeedbackIdsPreview } from './feedbacks/preview.js'
 
-export function UpdatePresets(self: ModuleInstance): void {
-	const structure: CompanionPresetSection[] = [
-		{
-			id: 'section1',
-			name: 'Preview Images',
-			definitions: [
-				{
-					id: 'group1',
-					name: 'Previews',
-					description: '',
-					type: 'simple',
-					presets: ['device_preview'],
-				},
-			],
-		},
-	]
-
-	const presets: CompanionPresetDefinitions<ModuleSchema> = {}
-
-	presets['device_preview'] = {
+function buildDevicePreviewPreset(label: string, ip: string): CompanionLayeredButtonPresetDefinition<ModuleSchema> {
+	return {
 		type: 'layered',
-		name: 'Device Preview',
+		name: `Preview - ${label}`,
 		elements: [
 			{
 				type: 'image',
@@ -42,12 +28,55 @@ export function UpdatePresets(self: ModuleInstance): void {
 				variableType: 'feedback',
 				variableName: 'preview_image',
 				feedbackId: FeedbackIdsPreview.Preview,
-				options: { device: '' },
+				options: { device: ip },
 			},
 		],
 		steps: [],
 		feedbacks: [],
 	}
+}
+
+export function UpdatePresets(self: ModuleInstance): void {
+	const encoders = self.chazyControl.mxsta?.in ?? []
+	const decoders = self.chazyControl.mxsta?.out ?? []
+
+	const presets: CompanionPresetDefinitions<ModuleSchema> = {}
+	const encoderPresetIds: string[] = []
+	const decoderPresetIds: string[] = []
+
+	for (const enc of encoders) {
+		const presetId = `preview_encoder_${enc.id}`
+		presets[presetId] = buildDevicePreviewPreset(`ENC: ${enc.name}`, enc.ip)
+		encoderPresetIds.push(presetId)
+	}
+	for (const dec of decoders) {
+		const presetId = `preview_decoder_${dec.id}`
+		presets[presetId] = buildDevicePreviewPreset(`DEC: ${dec.name}`, dec.ip)
+		decoderPresetIds.push(presetId)
+	}
+
+	const structure: CompanionPresetSection[] = [
+		{
+			id: 'section1',
+			name: 'Preview Images',
+			definitions: [
+				{
+					id: 'encoders',
+					name: 'Encoders',
+					description: 'One preview button per discovered encoder.',
+					type: 'simple',
+					presets: encoderPresetIds,
+				},
+				{
+					id: 'decoders',
+					name: 'Decoders',
+					description: 'One preview button per discovered decoder.',
+					type: 'simple',
+					presets: decoderPresetIds,
+				},
+			],
+		},
+	]
 
 	self.setPresetDefinitions(structure, presets)
 }
