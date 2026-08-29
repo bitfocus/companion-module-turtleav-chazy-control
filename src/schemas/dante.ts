@@ -5,9 +5,10 @@ import { z } from 'zod'
  *
  * Notes:
  * - Many numeric fields below are 0/1 flags in the firmware's JSON. They're
- *   typed as a literal union (rather than `z.number()`) so any future
- *   firmware value outside {0, 1} fails validation loudly instead of
- *   silently passing through as an unexpected number.
+ *   typed as a literal union transformed to `boolean` (rather than
+ *   `z.number()`), so any future firmware value outside {0, 1} fails
+ *   validation loudly instead of silently passing through as an unexpected
+ *   number, and callers get a real `boolean` rather than a `0 | 1` to check.
  * - `clksrc`, `sync`, `primultiv1/2`, `secmultiv1/2`, and channel `status`/
  *   `type` are typed as open `z.string()` rather than `z.enum([...])`, since
  *   only a single sample response was available to infer values from.
@@ -17,7 +18,7 @@ import { z } from 'zod'
  *   since both were empty in the observed sample — shape unconfirmed.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)])
+const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
 const ControllerSchema = z.object({
 	vip: z.string(),

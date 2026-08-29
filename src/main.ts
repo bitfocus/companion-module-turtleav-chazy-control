@@ -1,6 +1,6 @@
 import { InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
 import { GetConfigFields, type ModuleConfig } from './config.js'
-import { UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
+import { UpdateVariableDefinitions, UpdateVariableValues, type VariablesSchema } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions, type ActionsSchema } from './actions.js'
 import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
@@ -96,6 +96,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.chazyControl.on('encoder_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.chazyControl.on('decoder_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.chazyControl.on('dante_preset_changed', () => this.#debouncedUpdateCompanionBits())
+		// Not debounced — values should refresh on every poll, not only when devices change.
+		this.chazyControl.on('poll_complete', () => this.updateVariableValues())
 		this.#statusManager.updateStatus(InstanceStatus.Ok)
 		this.updateCompanionBits()
 
@@ -259,5 +261,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	private updateVariableDefinitions(): void {
 		UpdateVariableDefinitions(this)
+	}
+
+	private updateVariableValues(): void {
+		UpdateVariableValues(this)
 	}
 }

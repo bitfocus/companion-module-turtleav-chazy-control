@@ -15,7 +15,7 @@ import { z } from 'zod'
  *   the device's own JSON exactly, not a transcription choice.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)])
+const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
 export const ChazyDevUpgradeResponseSchema = z.object({
 	docver: z.int(),

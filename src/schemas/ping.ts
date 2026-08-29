@@ -13,7 +13,7 @@ import { z } from 'zod'
  * - No `docver` field here, unlike most other sections.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)])
+const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
 export const ChazyPingResponseSchema = z.object({
 	addr: z.string(),

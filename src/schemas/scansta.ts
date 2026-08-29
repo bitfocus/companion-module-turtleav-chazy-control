@@ -21,7 +21,7 @@ import { z } from 'zod'
  *   not confirmed, since no sample has had a device to populate them with.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)])
+const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
 export const ChazyScanStaResponseSchema = z.object({
 	docver: z.int(),

@@ -10,6 +10,7 @@ export type ModuleConfig = {
 	user: string
 	interval: number
 	imageInterval: number
+	variables: boolean
 }
 
 export function GetConfigFields(): SomeCompanionConfigField[] {
@@ -79,6 +80,13 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			max: 60000,
 			width: 4,
 			description: 'How often Preview feedbacks refresh their captured image.',
+		},
+		{
+			type: 'checkbox',
+			id: 'variables',
+			label: 'Create Module Variables',
+			default: false,
+			width: 4,
 		},
 	]
 }

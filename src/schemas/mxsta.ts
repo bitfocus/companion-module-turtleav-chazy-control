@@ -21,13 +21,16 @@ import { z } from 'zod'
  *   has been observed, per the same conservative approach used for `syssta`
  *   and `netsta` below.
  * - Most numeric flags follow the device's usual 0/1 convention and are
- *   typed as `zBinaryFlag`. A few (`iodir`, `ioset`, `ioget`, `dns_mode`,
+ *   typed as `zBinaryFlag`, which parses `0`/`1` and transforms the result to
+ *   a real `boolean`. A few (`iodir`, `ioset`, `ioget`, `dns_mode`,
  *   `*_ipmode`, `mode`, `cloud_server_code`, and the encoder/decoder `im`/
  *   `lan2_im` fields) look like bitmasks or wider enums rather than simple
  *   booleans, so they're left as `z.number()`.
- * - `cloud_server_en` is the one field that's a genuine JSON `boolean`
- *   rather than a 0/1 number — that's an inconsistency in the device API
- *   itself, not a transcription error here.
+ * - `cloud_server_en` is the one field that's a genuine JSON `boolean` on
+ *   the wire rather than a 0/1 number — that's an inconsistency in the
+ *   device API itself, not a transcription error here. It ends up typed the
+ *   same as the `zBinaryFlag` fields after parsing, but is validated
+ *   differently since the two are `false`/`true` vs `0`/`1` on input.
  * - `devpassword` is included as `z.string()` but is sensitive (looks like
  *   an encrypted/encoded credential) — worth scrubbing before logging any
  *   parsed response that contains it.
@@ -52,7 +55,7 @@ import { z } from 'zod'
  *   like a separate state string, not an echo of the last-written value.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)])
+const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
 const SysStaSchema = z.object({
 	devname: z.string(),

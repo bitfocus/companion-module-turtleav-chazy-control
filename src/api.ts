@@ -88,6 +88,8 @@ export interface ChazyControlEvents {
 	decoder_device_changed: []
 	/** Emitted whenever a dante preset's name changes, or presets are added/removed. */
 	dante_preset_changed: []
+	/** Emitted at the end of every poll cycle, whether or not anything changed. */
+	poll_complete: []
 }
 
 function areSetsEqual(a: string[], b: string[]): boolean {
@@ -211,6 +213,8 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 		)
 
 		if (!this.#signal?.aborted) {
+			this.emit('poll_complete')
+
 			this.#pollTimer = setTimeout(() => {
 				void this.#pollOnce()
 			}, this.#pollInterval)
@@ -669,6 +673,10 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 	}
 
 	// Latest parsed status from each poll, or null until the first successful poll completes.
+	get dante(): ChazyDanteResponse | null {
+		return this.#dante
+	}
+
 	get dantePresets(): ChazyDantePresetResponse | null {
 		return this.#dantePreset
 	}

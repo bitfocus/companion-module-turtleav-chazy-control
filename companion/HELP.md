@@ -11,6 +11,17 @@ Companion module for the Turtle AV Chazy Control and Chazy Control Pro.
 - **Username** — must be an admin-level account.
 - **Poll Interval (ms)** — how often the module polls the device for status.
 - **Image Poll Interval (ms)** — how often Preview feedbacks refresh their captured image. Only runs while at least one Preview feedback is in use.
+- **Create Module Variables** — when enabled, exposes one variable per Dante device, encoder, and decoder (see Variables below).
+
+### Variables
+
+Only created when **Create Module Variables** is enabled in the config.
+
+- `dante_<name>` — the full status object for that Dante device.
+- `encoder_<id>` — the full status object for that encoder.
+- `decoder_<id>` — the full status object for that decoder.
+
+Each holds the device's complete status object, refreshed every poll interval. Encoders and decoders are keyed by their numeric device id so the variable name stays stable if the device is renamed; Dante devices are keyed by name, since that is how the device API addresses them.
 
 ### Actions
 

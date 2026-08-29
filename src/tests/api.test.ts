@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type ModuleInstance from '../main.js'
 import type { Message } from '../types.js'
 import ChazyControl, { assertValidIPv4, EVENT_TYPES } from '../api.js'
+import { ChazyMxStaResponseSchema } from '../schemas/mxsta.js'
 
 vi.mock('../utils/image.js', () => ({
 	jpegBufferToPng64: vi.fn((buffer: Buffer) => `data:image/png;base64,mock(${buffer.toString('hex')})`),
@@ -120,6 +121,11 @@ const VALID_MXSTA_RESPONSE = {
 	medias: [],
 	vw: [],
 }
+
+// VALID_MXSTA_RESPONSE is wire-format JSON (0/1 flags), used to mock sendMsg's raw response.
+// zBinaryFlag fields transform to real booleans on parse, so assertions against the parsed
+// getter output compare against this derived value instead of the raw literal above.
+const VALID_MXSTA_PARSED = ChazyMxStaResponseSchema.parse(VALID_MXSTA_RESPONSE)
 
 type SendMsgMock = ReturnType<typeof vi.fn<(msg: Message, signal?: AbortSignal) => Promise<unknown>>>
 
@@ -568,7 +574,7 @@ describe('ChazyControl polling', () => {
 		await vi.waitFor(() => expect(chazyControl.mxsta).not.toBeNull())
 
 		expect(chazyControl.dantePresets).toEqual(VALID_DANTE_PRESET_RESPONSE)
-		expect(chazyControl.mxsta).toEqual(VALID_MXSTA_RESPONSE)
+		expect(chazyControl.mxsta).toEqual(VALID_MXSTA_PARSED)
 		expect(chazyControl.time).toEqual(VALID_TIME_RESPONSE)
 		expect(chazyControl.controlEvents).toEqual(VALID_CONTROL_EVENT_RESPONSE)
 		expect(chazyControl.controlEventLog).toEqual(VALID_CONTROL_EVENT_LOG_RESPONSE)
@@ -632,7 +638,7 @@ describe('ChazyControl polling', () => {
 		await vi.waitFor(() => expect(chazyControl.controlEventLog).not.toBeNull())
 
 		expect(chazyControl.time).toBeNull() // failed to parse, rest still populated
-		expect(chazyControl.mxsta).toEqual(VALID_MXSTA_RESPONSE)
+		expect(chazyControl.mxsta).toEqual(VALID_MXSTA_PARSED)
 		expect(chazyControl.controlEvents).toEqual(VALID_CONTROL_EVENT_RESPONSE)
 	})
 
@@ -802,6 +808,47 @@ describe('ChazyControl polling', () => {
 		await vi.advanceTimersByTimeAsync(1000)
 		await flushMicrotasks()
 		expect(onChanged).toHaveBeenCalledTimes(2)
+	})
+
+	it('emits poll_complete on every cycle, even when nothing changed', async () => {
+		vi.useFakeTimers()
+		const { instance, sendMsg } = createMockInstance()
+		mockAllStatusQueries(sendMsg)
+		const chazyControl = new ChazyControl(instance, 1000, 1000)
+		const onPollComplete = vi.fn()
+		chazyControl.on('poll_complete', onPollComplete)
+
+		chazyControl.startPolling()
+		await flushMicrotasks()
+		expect(onPollComplete).toHaveBeenCalledTimes(1)
+
+		// Nothing changes between cycles, but it still fires each time.
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onPollComplete).toHaveBeenCalledTimes(2)
+
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onPollComplete).toHaveBeenCalledTimes(3)
+	})
+
+	it('does not emit poll_complete once the signal is aborted', async () => {
+		vi.useFakeTimers()
+		const { instance, sendMsg } = createMockInstance()
+		mockAllStatusQueries(sendMsg)
+		const controller = new AbortController()
+		const chazyControl = new ChazyControl(instance, 1000, 1000, controller.signal)
+		const onPollComplete = vi.fn()
+		chazyControl.on('poll_complete', onPollComplete)
+
+		chazyControl.startPolling()
+		await flushMicrotasks()
+		expect(onPollComplete).toHaveBeenCalledTimes(1)
+
+		controller.abort()
+		await vi.advanceTimersByTimeAsync(5000)
+		await flushMicrotasks()
+		expect(onPollComplete).toHaveBeenCalledTimes(1)
 	})
 })
 
