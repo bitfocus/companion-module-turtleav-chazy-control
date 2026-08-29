@@ -69,6 +69,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#controller.abort('Destroying module')
 		await this.#dispatcher?.close()
 		this.#dispatcher = undefined
+		this.#statusManager.destroy()
 	}
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
