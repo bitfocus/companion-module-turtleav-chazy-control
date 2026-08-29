@@ -10,6 +10,7 @@ import ChazyControl from './api.js'
 import PQueue from 'p-queue'
 import { Agent, request } from 'undici'
 import { debounce } from 'es-toolkit'
+import { StatusManager } from './status.js'
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -19,11 +20,30 @@ export type ModuleSchema = {
 	variables: VariablesSchema
 }
 
+// Maps an HTTP response status to an instance status, for sendMsg to report via #statusManager.
+function statusForHttpCode(statusCode: number): { status: InstanceStatus; message: string | null } {
+	if (statusCode >= 200 && statusCode < 300) return { status: InstanceStatus.Ok, message: null }
+	if (statusCode >= 300 && statusCode < 400) {
+		return {
+			status: InstanceStatus.BadConfig,
+			message: `Unexpected redirect (status ${statusCode}) — check the Protocol setting`,
+		}
+	}
+	if (statusCode === 401 || statusCode === 403) {
+		return { status: InstanceStatus.AuthenticationFailure, message: `Authentication failed (status ${statusCode})` }
+	}
+	if (statusCode >= 500) {
+		return { status: InstanceStatus.ConnectionFailure, message: `Device error (status ${statusCode})` }
+	}
+	return { status: InstanceStatus.UnknownError, message: `Unexpected status ${statusCode}` }
+}
+
 export { UpgradeScripts }
 
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	public config!: ModuleConfig // Setup in init()
 	#queue = new PQueue({ concurrency: 1, autoStart: true, interval: 10, intervalCap: 1, strict: true })
+	#statusManager = new StatusManager(this, { status: InstanceStatus.Connecting, message: 'Initialising' }, 2000)
 	#controller = new AbortController()
 	#dispatcher: Agent | undefined
 	public chazyControl: ChazyControl = new ChazyControl(this, 10000, 10000, this.#controller.signal)
@@ -39,7 +59,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.config = config
 		this.updateDispatcher()
 
-		this.updateStatus(InstanceStatus.Connecting)
+		this.#statusManager.updateStatus(InstanceStatus.Connecting)
 
 		void this.configUpdated(config)
 	}
@@ -61,6 +81,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#controller = new AbortController()
 		this.#queue.clear()
 
+		this.#statusManager.updateStatus(InstanceStatus.Connecting, `Config updated — reinitialising`)
+
 		// Carry forward which feedbacks were expecting image polling, so replacing
 		// chazyControl doesn't silently stop their polling until Companion happens to
 		// recheck them for some other reason.
@@ -74,7 +96,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.chazyControl.on('encoder_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.chazyControl.on('decoder_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.chazyControl.on('dante_preset_changed', () => this.#debouncedUpdateCompanionBits())
-		this.updateStatus(InstanceStatus.Ok)
+		this.#statusManager.updateStatus(InstanceStatus.Ok)
 		this.updateCompanionBits()
 
 		this.chazyControl.startPolling()
@@ -137,17 +159,33 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				}
 
 				this.log('debug', `Sending: ${path}`)
-				const { statusCode, body } = await request(path, {
-					method: 'GET',
-					signal: taskSignal,
-					dispatcher: this.#dispatcher,
-					headers: {
-						Accept: 'application/json, text/plain, */*',
-						Connection: 'keep-alive',
-						'Content-Type': 'application/json',
-						Cookie: `type=admin; user=${this.config.user}; ctrloutput=all; canselinput=all; canselpreset=0,1,2,3,4,5,6,7; ctrlfun=X; mx_icon_sort=X; mx_tab_sort=X`, // TODO: Confirm which parts are necessary
-					},
-				})
+				let requestResult: Awaited<ReturnType<typeof request>>
+				try {
+					requestResult = await request(path, {
+						method: 'GET',
+						signal: taskSignal,
+						dispatcher: this.#dispatcher,
+						headers: {
+							Accept: 'application/json, text/plain, */*',
+							Connection: 'keep-alive',
+							'Content-Type': 'application/json',
+							Cookie: `type=admin; user=${this.config.user}; ctrloutput=all; canselinput=all; canselpreset=0,1,2,3,4,5,6,7; ctrlfun=X; mx_icon_sort=X; mx_tab_sort=X`, // TODO: Confirm which parts are necessary
+						},
+					})
+				} catch (err) {
+					if (!taskSignal?.aborted) {
+						this.#statusManager.updateStatus(
+							InstanceStatus.ConnectionFailure,
+							err instanceof Error ? err.message : String(err),
+						)
+					}
+					throw err
+				}
+
+				const { statusCode, body } = requestResult
+				const { status, message } = statusForHttpCode(statusCode)
+				this.#statusManager.updateStatus(status, message)
+
 				if (statusCode < 200 || statusCode >= 300) {
 					await body.dump() // drain without parsing
 					throw new Error(`Unexpected status ${statusCode} for path: ${path}`)
