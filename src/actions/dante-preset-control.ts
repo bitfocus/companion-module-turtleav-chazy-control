@@ -3,16 +3,6 @@ import type ModuleInstance from '../main.js'
 import API from '../api.js'
 import { ensureAllActionKeys } from './utils.js'
 
-const PRESET_HANDLE_OPTION = {
-	id: 'hdl' as const,
-	type: 'number' as const,
-	label: 'Preset Handle',
-	default: 1,
-	min: 1,
-	max: 256,
-	asInteger: true,
-}
-
 export enum ActionIdsDantePresetControl {
 	CreateDantePreset = 'create_dante_preset',
 	DeleteDantePreset = 'delete_dante_preset',
@@ -55,12 +45,29 @@ export function getDantePresetControlActions(
 ): CompanionActionDefinitions<ActionSchemaDantePresetControl> {
 	const actions: Partial<CompanionActionDefinitions<ActionSchemaDantePresetControl>> = {}
 	const logger = createModuleLogger('Actions:DantePresetControl')
+	const presetChoices = instance.chazyControl.getDantePresetChoices()
+	const PRESET_HANDLE_OPTION = {
+		id: 'hdl' as const,
+		type: 'dropdown' as const,
+		label: 'Preset Handle',
+		choices: presetChoices,
+		default: presetChoices[0]?.id ?? 1,
+	}
+	// Create should offer every handle (including empty ones) so a free slot can be picked.
+	const createPresetChoices = instance.chazyControl.getDantePresetChoices(true)
+	const CREATE_PRESET_HANDLE_OPTION = {
+		id: 'hdl' as const,
+		type: 'dropdown' as const,
+		label: 'Preset Handle',
+		choices: createPresetChoices,
+		default: createPresetChoices[0]?.id ?? 1,
+	}
 
 	// Chazy Control Pro only - the (non-Pro) Chazy Control API has no Dante Preset commands.
 	if (instance.config.model === 'chazy control pro') {
 		actions[ActionIdsDantePresetControl.CreateDantePreset] = {
 			name: 'Dante Preset - Create',
-			options: [PRESET_HANDLE_OPTION],
+			options: [CREATE_PRESET_HANDLE_OPTION],
 			callback: async (event, context) => {
 				const msg = API.createDantePreset(event.options.hdl)
 				await instance.sendMsg(msg, context.signal)

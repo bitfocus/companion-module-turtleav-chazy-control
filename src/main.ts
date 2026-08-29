@@ -73,6 +73,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.chazyControl.on('dante_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.chazyControl.on('encoder_device_changed', () => this.#debouncedUpdateCompanionBits())
 		this.chazyControl.on('decoder_device_changed', () => this.#debouncedUpdateCompanionBits())
+		this.chazyControl.on('dante_preset_changed', () => this.#debouncedUpdateCompanionBits())
 		this.updateStatus(InstanceStatus.Ok)
 		this.updateCompanionBits()
 

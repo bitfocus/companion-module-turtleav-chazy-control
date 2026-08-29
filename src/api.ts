@@ -86,9 +86,11 @@ export interface ChazyControlEvents {
 	encoder_device_changed: []
 	/** Emitted whenever a decoder's name or IP changes, or decoders are added/removed. */
 	decoder_device_changed: []
+	/** Emitted whenever a dante preset's name changes, or presets are added/removed. */
+	dante_preset_changed: []
 }
 
-function areDeviceSetsEqual(a: string[], b: string[]): boolean {
+function areSetsEqual(a: string[], b: string[]): boolean {
 	if (a.length !== b.length) return false
 	const setA = new Set(a)
 	return b.every((entry) => setA.has(entry))
@@ -96,6 +98,10 @@ function areDeviceSetsEqual(a: string[], b: string[]): boolean {
 
 function toDeviceSignature(device: { name: string; ip: string }): string {
 	return `${device.name}|${device.ip}`
+}
+
+function toPresetSignature(preset: { id: number; name: string }): string {
+	return `${preset.id}|${preset.name}`
 }
 
 export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
@@ -150,7 +156,7 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 
 			this.#dante = parsed
 
-			if (!areDeviceSetsEqual(newNames, oldNames)) {
+			if (!areSetsEqual(newNames, oldNames)) {
 				this.emit('dante_device_changed')
 			}
 		})
@@ -159,7 +165,14 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			ChazyControl.getDantePresets(),
 			ChazyDantePresetResponseSchema,
 			(parsed) => {
+				const newPresets = parsed.dante_preset.map(toPresetSignature)
+				const oldPresets = this.#dantePreset?.dante_preset.map(toPresetSignature) ?? []
+
 				this.#dantePreset = parsed
+
+				if (!areSetsEqual(newPresets, oldPresets)) {
+					this.emit('dante_preset_changed')
+				}
 			},
 		)
 		await this.#pollSchema('matrix status', ChazyControl.getMxSta(), ChazyMxStaResponseSchema, (parsed) => {
@@ -170,10 +183,10 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 
 			this.#mxsta = parsed
 
-			if (!areDeviceSetsEqual(newEncoders, oldEncoders)) {
+			if (!areSetsEqual(newEncoders, oldEncoders)) {
 				this.emit('encoder_device_changed')
 			}
-			if (!areDeviceSetsEqual(newDecoders, oldDecoders)) {
+			if (!areSetsEqual(newDecoders, oldDecoders)) {
 				this.emit('decoder_device_changed')
 			}
 		})
@@ -636,6 +649,23 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 	getDecoderChoicesById(): DropdownChoice<number>[] {
 		if (!this.#mxsta) return []
 		return this.#mxsta.out.map((dec) => ({ id: dec.id, label: dec.name }))
+	}
+
+	// `includeEmpty` lists every valid preset handle (1-256), not just the ones the device
+	// has actually reported — handles with no known preset get the label "(empty)". Useful
+	// for picking a free slot to create into, rather than only choosing among existing presets.
+	getDantePresetChoices(includeEmpty = false): DropdownChoice<number>[] {
+		const presets = this.#dantePreset?.dante_preset ?? []
+		if (!includeEmpty) {
+			return presets.map((preset) => ({ id: preset.id, label: preset.name }))
+		}
+
+		const presetsById = new Map(presets.map((preset) => [preset.id, preset]))
+		const choices: DropdownChoice<number>[] = []
+		for (let id = 1; id <= 256; id++) {
+			choices.push({ id, label: presetsById.get(id)?.name ?? '(empty)' })
+		}
+		return choices
 	}
 
 	// Latest parsed status from each poll, or null until the first successful poll completes.

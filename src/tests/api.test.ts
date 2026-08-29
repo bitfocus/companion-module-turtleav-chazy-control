@@ -765,6 +765,44 @@ describe('ChazyControl polling', () => {
 		// Never mistaken for an encoder change.
 		expect(onEncoderChanged).not.toHaveBeenCalled()
 	})
+
+	it('emits dante_preset_changed only when the preset set actually changes', async () => {
+		vi.useFakeTimers()
+		const { instance, sendMsg } = createMockInstance()
+		let presetName = 'Preset A'
+		sendMsg.mockImplementation(async (msg) => {
+			if (msg.method === 'capture') throw new Error('Unexpected capture request')
+			if (msg.data === 'dantepreset') {
+				return { dante_preset: [{ id: 1, name: presetName }] }
+			}
+			return {
+				dante: VALID_DANTE_RESPONSE,
+				mxsta: VALID_MXSTA_RESPONSE,
+				time: VALID_TIME_RESPONSE,
+				controlevent: VALID_CONTROL_EVENT_RESPONSE,
+				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
+			}[msg.data]
+		})
+		const chazyControl = new ChazyControl(instance, 1000, 1000)
+		const onChanged = vi.fn()
+		chazyControl.on('dante_preset_changed', onChanged)
+
+		// First poll: nothing -> [{ id: 1, name: "Preset A" }] is a change.
+		chazyControl.startPolling()
+		await flushMicrotasks()
+		expect(onChanged).toHaveBeenCalledTimes(1)
+
+		// Same preset set on the next cycle — no further emit.
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onChanged).toHaveBeenCalledTimes(1)
+
+		// Preset renamed — emits again.
+		presetName = 'Preset B'
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onChanged).toHaveBeenCalledTimes(2)
+	})
 })
 
 describe('ChazyControl feedback image polling', () => {
@@ -918,6 +956,68 @@ describe('ChazyControl.getCapturePreview', () => {
 		)
 
 		expect(sendMsg).toHaveBeenCalledTimes(2)
+	})
+})
+
+describe('ChazyControl.getDantePresetChoices', () => {
+	afterEach(() => {
+		vi.useRealTimers()
+	})
+
+	async function chazyControlWithPresets(presets: { id: number; name: string }[]) {
+		const { instance, sendMsg } = createMockInstance()
+		sendMsg.mockImplementation(async (msg) => {
+			if (msg.method === 'capture') throw new Error('Unexpected capture request')
+			if (msg.data === 'dantepreset') return { dante_preset: presets }
+			return {
+				dante: VALID_DANTE_RESPONSE,
+				mxsta: VALID_MXSTA_RESPONSE,
+				time: VALID_TIME_RESPONSE,
+				controlevent: VALID_CONTROL_EVENT_RESPONSE,
+				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
+			}[msg.data]
+		})
+		const chazyControl = new ChazyControl(instance, 5000, 5000)
+		chazyControl.startPolling()
+		await vi.waitFor(() => expect(chazyControl.dantePresets).not.toBeNull())
+		return chazyControl
+	}
+
+	it('returns [] before the first poll, regardless of includeEmpty', () => {
+		const { instance } = createMockInstance()
+		const chazyControl = new ChazyControl(instance, 5000, 5000)
+
+		expect(chazyControl.getDantePresetChoices()).toEqual([])
+		expect(chazyControl.getDantePresetChoices(true)).toEqual(
+			Array.from({ length: 256 }, (_, i) => ({ id: i + 1, label: '(empty)' })),
+		)
+	})
+
+	it('without includeEmpty, lists only the known presets', async () => {
+		const chazyControl = await chazyControlWithPresets([
+			{ id: 3, name: 'Show A' },
+			{ id: 200, name: 'Show B' },
+		])
+
+		expect(chazyControl.getDantePresetChoices()).toEqual([
+			{ id: 3, label: 'Show A' },
+			{ id: 200, label: 'Show B' },
+		])
+	})
+
+	it('with includeEmpty, lists all 256 handles with known presets labeled and the rest "(empty)"', async () => {
+		const chazyControl = await chazyControlWithPresets([
+			{ id: 3, name: 'Show A' },
+			{ id: 200, name: 'Show B' },
+		])
+
+		const choices = chazyControl.getDantePresetChoices(true)
+
+		expect(choices).toHaveLength(256)
+		expect(choices[0]).toEqual({ id: 1, label: '(empty)' })
+		expect(choices[2]).toEqual({ id: 3, label: 'Show A' })
+		expect(choices[199]).toEqual({ id: 200, label: 'Show B' })
+		expect(choices[255]).toEqual({ id: 256, label: '(empty)' })
 	})
 })
 
