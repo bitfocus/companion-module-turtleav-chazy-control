@@ -3,6 +3,7 @@ import type ModuleInstance from '../main.js'
 import type { Message } from '../types.js'
 import ChazyControl, { assertValidIPv4, EVENT_TYPES } from '../api.js'
 import { ChazyMxStaResponseSchema } from '../schemas/mxsta.js'
+import { companionLogger } from './setup.js'
 
 vi.mock('../utils/image.js', () => ({
 	jpegBufferToPng64: vi.fn((buffer: Buffer) => `data:image/png;base64,mock(${buffer.toString('hex')})`),
@@ -617,6 +618,11 @@ describe('ChazyControl polling', () => {
 		expect(chazyControl.dantePresets).toEqual(VALID_DANTE_PRESET_RESPONSE)
 		expect(chazyControl.controlEvents).toEqual(VALID_CONTROL_EVENT_RESPONSE)
 		expect(chazyControl.controlEventLog).toEqual(VALID_CONTROL_EVENT_LOG_RESPONSE)
+		expect(companionLogger).toHaveBeenCalledWith(
+			'ChazyControl',
+			'error',
+			expect.stringContaining('Failed to poll matrix status'),
+		)
 	})
 
 	it('keeps polling the other queries when one query fails to parse', async () => {
@@ -640,6 +646,11 @@ describe('ChazyControl polling', () => {
 		expect(chazyControl.time).toBeNull() // failed to parse, rest still populated
 		expect(chazyControl.mxsta).toEqual(VALID_MXSTA_PARSED)
 		expect(chazyControl.controlEvents).toEqual(VALID_CONTROL_EVENT_RESPONSE)
+		expect(companionLogger).toHaveBeenCalledWith(
+			'ChazyControl',
+			'error',
+			expect.stringContaining('Failed to poll time'),
+		)
 	})
 
 	it('emits dante_device_changed only when the device set actually changes', async () => {
