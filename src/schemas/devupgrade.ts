@@ -17,14 +17,16 @@ import { z } from 'zod'
 
 const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
-export const ChazyDevUpgradeResponseSchema = z.object({
-	docver: z.int(),
-	UploadFile: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-	History: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-	Action: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-	ActionProgress: z.string(),
-	Upgrading: zBinaryFlag,
-	DevAction: z.string(),
-})
+export const ChazyDevUpgradeResponseSchema = z.compile(
+	z.object({
+		docver: z.int(),
+		UploadFile: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+		History: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+		Action: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+		ActionProgress: z.string(),
+		Upgrading: zBinaryFlag,
+		DevAction: z.string(),
+	}),
+)
 
 export type ChazyDevUpgradeResponse = z.infer<typeof ChazyDevUpgradeResponseSchema>

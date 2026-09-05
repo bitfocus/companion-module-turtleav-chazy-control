@@ -19,11 +19,13 @@ const UserAccountSchema = z.object({
 	canselpreset: z.string(),
 })
 
-export const ChazyUserStaResponseSchema = z.object({
-	docver: z.int(),
-	normaluser: z.array(UserAccountSchema),
-	adminuser: z.array(UserAccountSchema),
-})
+export const ChazyUserStaResponseSchema = z.compile(
+	z.object({
+		docver: z.int(),
+		normaluser: z.array(UserAccountSchema),
+		adminuser: z.array(UserAccountSchema),
+	}),
+)
 
 export type ChazyUserStaResponse = z.infer<typeof ChazyUserStaResponseSchema>
 export type UserAccount = z.infer<typeof UserAccountSchema>

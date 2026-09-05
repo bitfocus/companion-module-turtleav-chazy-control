@@ -397,17 +397,19 @@ const VideoWallSchema = z.object({
 	cfg: z.array(VideoWallCfgSchema),
 })
 
-export const ChazyMxStaResponseSchema = z.object({
-	docver: z.int(),
-	syssta: SysStaSchema,
-	netsta: NetStaSchema,
-	in: z.array(EncoderStatusSchema),
-	out: z.array(DecoderStatusSchema),
-	config: ConfigSchema,
-	groups: z.array(z.unknown()), // shape unconfirmed
-	medias: z.array(z.unknown()), // shape unconfirmed
-	vw: z.array(VideoWallSchema),
-})
+export const ChazyMxStaResponseSchema = z.compile(
+	z.object({
+		docver: z.int(),
+		syssta: SysStaSchema,
+		netsta: NetStaSchema,
+		in: z.array(EncoderStatusSchema),
+		out: z.array(DecoderStatusSchema),
+		config: ConfigSchema,
+		groups: z.array(z.unknown()), // shape unconfirmed
+		medias: z.array(z.unknown()), // shape unconfirmed
+		vw: z.array(VideoWallSchema),
+	}),
+)
 
 export type ChazyMxStaResponse = z.infer<typeof ChazyMxStaResponseSchema>
 export type SysSta = z.infer<typeof SysStaSchema>

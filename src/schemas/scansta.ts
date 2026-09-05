@@ -23,16 +23,18 @@ import { z } from 'zod'
 
 const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
-export const ChazyScanStaResponseSchema = z.object({
-	docver: z.int(),
-	scanning: zBinaryFlag,
-	defnew: z.number(), // meaning unconfirmed
-	rslval: z.number(),
-	rslstr: z.string(),
-	newin: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-	projin: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-	newout: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-	projout: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
-})
+export const ChazyScanStaResponseSchema = z.compile(
+	z.object({
+		docver: z.int(),
+		scanning: zBinaryFlag,
+		defnew: z.number(), // meaning unconfirmed
+		rslval: z.number(),
+		rslstr: z.string(),
+		newin: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+		projin: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+		newout: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+		projout: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
+	}),
+)
 
 export type ChazyScanStaResponse = z.infer<typeof ChazyScanStaResponseSchema>

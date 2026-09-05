@@ -15,10 +15,12 @@ import { z } from 'zod'
 
 const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
 
-export const ChazyPingResponseSchema = z.object({
-	addr: z.string(),
-	result: z.array(z.string()),
-	success: zBinaryFlag,
-})
+export const ChazyPingResponseSchema = z.compile(
+	z.object({
+		addr: z.string(),
+		result: z.array(z.string()),
+		success: zBinaryFlag,
+	}),
+)
 
 export type ChazyPingResponse = z.infer<typeof ChazyPingResponseSchema>

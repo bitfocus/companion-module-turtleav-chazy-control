@@ -107,12 +107,14 @@ const DanteDeviceSchema = z.object({
 	txflow: z.array(z.unknown()), // shape unconfirmed — always empty in observed samples
 })
 
-export const ChazyDanteResponseSchema = z.object({
-	docver: z.number(),
-	controller: ControllerSchema,
-	ddm: DdmSchema,
-	dante: z.array(DanteDeviceSchema),
-})
+export const ChazyDanteResponseSchema = z.compile(
+	z.object({
+		docver: z.number(),
+		controller: ControllerSchema,
+		ddm: DdmSchema,
+		dante: z.array(DanteDeviceSchema),
+	}),
+)
 
 export type ChazyDanteResponse = z.infer<typeof ChazyDanteResponseSchema>
 export type DanteDevice = z.infer<typeof DanteDeviceSchema>

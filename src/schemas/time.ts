@@ -16,10 +16,12 @@ import { z } from 'zod'
 
 const CHAZY_TIME_FORMAT = /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/
 
-export const ChazyTimeResponseSchema = z.object({
-	docver: z.number(),
-	time: z.string().regex(CHAZY_TIME_FORMAT, 'Expected time in "YYYY/MM/DD HH:mm:ss" format'),
-	tz: z.string(),
-})
+export const ChazyTimeResponseSchema = z.compile(
+	z.object({
+		docver: z.number(),
+		time: z.string().regex(CHAZY_TIME_FORMAT, 'Expected time in "YYYY/MM/DD HH:mm:ss" format'),
+		tz: z.string(),
+	}),
+)
 
 export type ChazyTimeResponse = z.infer<typeof ChazyTimeResponseSchema>

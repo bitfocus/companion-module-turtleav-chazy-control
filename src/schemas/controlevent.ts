@@ -54,9 +54,11 @@ const ControlEventSchema = z.object({
 	response: z.string(),
 })
 
-export const ChazyControlEventResponseSchema = z.object({
-	events: z.array(ControlEventSchema),
-})
+export const ChazyControlEventResponseSchema = z.compile(
+	z.object({
+		events: z.array(ControlEventSchema),
+	}),
+)
 
 export type ChazyControlEventResponse = z.infer<typeof ChazyControlEventResponseSchema>
 export type ControlEvent = z.infer<typeof ControlEventSchema>
