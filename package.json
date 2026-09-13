@@ -13,7 +13,8 @@
 		"lint:raw": "eslint",
 		"lint": "run lint:raw .",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage"
 	},
 	"license": "MIT",
 	"repository": {
@@ -37,6 +38,7 @@
 		"@companion-module/tools": "^3.1.0",
 		"@types/node": "^26.4.1",
 		"@types/pngjs": "^6.0.5",
+		"@vitest/coverage-v8": "5.0.0",
 		"eslint": "^10.10.0",
 		"husky": "^9.1.7",
 		"lint-staged": "^17.5.0",

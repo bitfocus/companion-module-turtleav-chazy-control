@@ -4,6 +4,7 @@ package-lock.json
 /*.tgz
 /*.zip
 /dist
+/coverage
 DEBUG-*
 /.yarn
 /.vscode
