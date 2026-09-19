@@ -7,8 +7,12 @@ import type {
 } from '@companion-module/base'
 import { createModuleLogger } from '@companion-module/base'
 import { FeedbackIdsPreview } from './feedbacks/preview.js'
+import { CompositeElementId } from './composites.js'
 
 const logger = createModuleLogger('Presets')
+
+/** The local variable each preview preset binds to the Preview feedback, and feeds into the composite */
+export const PREVIEW_LOCAL_VARIABLE = 'preview_image'
 
 function buildDevicePreviewPreset(label: string, ip: string): CompanionLayeredButtonPresetDefinition<ModuleSchema> {
 	return {
@@ -16,20 +20,20 @@ function buildDevicePreviewPreset(label: string, ip: string): CompanionLayeredBu
 		name: `Preview - ${label}`,
 		elements: [
 			{
-				type: 'image',
+				type: 'composite',
 				id: 'preview_image',
-				x: 0,
-				y: 0,
-				width: 100,
-				height: 100,
-				fillMode: 'fit',
-				base64Image: { isExpression: true, value: '$(local:preview_image)' },
+				name: 'Device Preview',
+				elementId: CompositeElementId.DevicePreview,
+				options: {
+					image: { isExpression: true, value: `$(local:${PREVIEW_LOCAL_VARIABLE})` },
+					fillMode: 'fit',
+				},
 			},
 		],
 		localVariables: [
 			{
 				variableType: 'feedback',
-				variableName: 'preview_image',
+				variableName: PREVIEW_LOCAL_VARIABLE,
 				feedbackId: FeedbackIdsPreview.Preview,
 				options: { device: ip },
 			},

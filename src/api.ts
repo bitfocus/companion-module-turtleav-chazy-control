@@ -10,7 +10,7 @@ import { ChazyTimeResponseSchema, type ChazyTimeResponse } from './schemas/time.
 import { ChazyControlEventResponseSchema, type ChazyControlEventResponse } from './schemas/controlevent.js'
 import { ChazyControlEventLogResponseSchema, type ChazyControlEventLogResponse } from './schemas/controleventlog.js'
 import type ModuleInstance from './main.js'
-import { jpegBufferToPng64 } from './utils/image.js'
+import { jpegBufferToDataUri } from './utils/image.js'
 
 function assertValidPositiveInteger(value: number, label: string): void {
 	if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${label} ${value}`)
@@ -275,7 +275,7 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 		}
 	}
 
-	// Central capture + JPEG->PNG conversion, cached per ip+width so multiple feedbacks
+	// Central capture, returned as a JPEG data URI and cached per ip+width so multiple feedbacks
 	// pointed at the same device don't each trigger their own request every poll interval.
 	public async getCapturePreview(ip: string, width: number): Promise<string> {
 		const key = `${ip}:${width}`
@@ -285,7 +285,7 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 		}
 
 		const msg: Message & { method: 'capture' } = { method: 'capture', ip, width }
-		const promise = this.#instance.sendMsg(msg).then(jpegBufferToPng64)
+		const promise = this.#instance.sendMsg(msg).then(jpegBufferToDataUri)
 		promise.catch(() => this.#captureCache.delete(key))
 		this.#captureCache.set(key, { timestamp: Date.now(), promise })
 		return promise

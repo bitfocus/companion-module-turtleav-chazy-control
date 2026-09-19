@@ -90,4 +90,8 @@ Each holds the device's complete status object, refreshed every poll interval. E
 ### Feedback
 
 - **Preview** — captures a still image from a device on the network and returns it as a value, so it can be shown on a button. Set the `Device` option to the IP address of the device to preview.
-  - The **Encoders**/**Decoders** presets give a ready-made button per discovered device, already pointed at that device's IP — it wires the feedback's captured image straight onto the button via a local variable, with no extra style configuration needed.
+  - The **Encoders**/**Decoders** presets give a ready-made button per discovered device, already pointed at that device's IP — each binds the feedback to a local variable and feeds it into the **Device Preview** element below, with no extra style configuration needed.
+
+### Graphics Elements
+
+- **Device Preview** — an image element for layered buttons. Set its `Image` option to a captured image, e.g. `$(local:preview_image)` bound to the Preview feedback, and choose how it fills the button (`Fit` by default). The element only draws the image; the Preview feedback is what captures it and keeps it refreshed.

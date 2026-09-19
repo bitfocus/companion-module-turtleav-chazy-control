@@ -5,6 +5,7 @@ import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions, type ActionsSchema } from './actions.js'
 import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
 import { UpdatePresets } from './presets.js'
+import { UpdateCompositeElements, type CompositeElementSchema } from './composites.js'
 import type { Message } from './types.js'
 import ChazyControl from './api.js'
 import PQueue from 'p-queue'
@@ -18,6 +19,7 @@ export type ModuleSchema = {
 	actions: ActionsSchema
 	feedbacks: FeedbacksSchema
 	variables: VariablesSchema
+	compositeElements: CompositeElementSchema
 }
 
 // Maps an HTTP response status to an instance status, for sendMsg to report via #statusManager.
@@ -124,6 +126,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	private updateCompanionBits(): void {
 		this.updateActions() // export actions
 		this.updateFeedbacks() // export feedbacks
+		this.updateCompositeElements() // before presets, which place the composite elements
 		this.updatePresets() // export Presets
 		this.updateVariableDefinitions() // export variable definitions
 	}
@@ -254,6 +257,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	private updateFeedbacks(): void {
 		UpdateFeedbacks(this)
+	}
+
+	private updateCompositeElements(): void {
+		UpdateCompositeElements(this)
 	}
 
 	private updatePresets(): void {

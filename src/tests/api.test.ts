@@ -4,10 +4,7 @@ import type { Message } from '../types.js'
 import ChazyControl, { assertValidIPv4, EVENT_TYPES } from '../api.js'
 import { ChazyMxStaResponseSchema } from '../schemas/mxsta.js'
 import { companionLogger } from './setup.js'
-
-vi.mock('../utils/image.js', () => ({
-	jpegBufferToPng64: vi.fn((buffer: Buffer) => `data:image/png;base64,mock(${buffer.toString('hex')})`),
-}))
+import { CAPTURE_JPEG, DEVICE_ERROR_BODY } from './fixtures.js'
 
 // #pollOnce chains several sequential real `await`s (one per status query); under fake timers
 // those settle via microtasks rather than timers, so draining a batch of them is the reliable
@@ -948,20 +945,20 @@ describe('ChazyControl.getCapturePreview', () => {
 		vi.useRealTimers()
 	})
 
-	it('fetches a capture and converts it via jpegBufferToPng64', async () => {
+	it('fetches a capture and returns it as a JPEG data URI', async () => {
 		const { instance, sendMsg } = createMockInstance()
-		sendMsg.mockResolvedValue(Buffer.from('fake-jpeg-bytes'))
+		sendMsg.mockResolvedValue(CAPTURE_JPEG)
 		const chazyControl = new ChazyControl(instance, 5000, 5000)
 
-		const png64 = await chazyControl.getCapturePreview('169.254.3.140', 240)
+		const dataUri = await chazyControl.getCapturePreview('169.254.3.140', 240)
 
 		expect(sendMsg).toHaveBeenCalledWith({ method: 'capture', ip: '169.254.3.140', width: 240 })
-		expect(png64).toBe(`data:image/png;base64,mock(${Buffer.from('fake-jpeg-bytes').toString('hex')})`)
+		expect(dataUri).toBe(`data:image/jpeg;base64,${CAPTURE_JPEG.toString('base64')}`)
 	})
 
 	it('dedupes concurrent/subsequent calls for the same ip+width within the poll interval', async () => {
 		const { instance, sendMsg } = createMockInstance()
-		sendMsg.mockResolvedValue(Buffer.from('fake-jpeg-bytes'))
+		sendMsg.mockResolvedValue(CAPTURE_JPEG)
 		const chazyControl = new ChazyControl(instance, 5000, 5000)
 
 		const [first, second] = await Promise.all([
@@ -978,7 +975,7 @@ describe('ChazyControl.getCapturePreview', () => {
 
 	it('fetches separately for a different ip or width', async () => {
 		const { instance, sendMsg } = createMockInstance()
-		sendMsg.mockResolvedValue(Buffer.from('fake-jpeg-bytes'))
+		sendMsg.mockResolvedValue(CAPTURE_JPEG)
 		const chazyControl = new ChazyControl(instance, 5000, 5000)
 
 		await chazyControl.getCapturePreview('169.254.3.140', 240)
@@ -990,7 +987,7 @@ describe('ChazyControl.getCapturePreview', () => {
 
 	it('refetches after the cache entry expires', async () => {
 		const { instance, sendMsg } = createMockInstance()
-		sendMsg.mockResolvedValue(Buffer.from('fake-jpeg-bytes'))
+		sendMsg.mockResolvedValue(CAPTURE_JPEG)
 		const chazyControl = new ChazyControl(instance, 5000, 5000)
 
 		await chazyControl.getCapturePreview('169.254.3.140', 240)
@@ -1003,17 +1000,29 @@ describe('ChazyControl.getCapturePreview', () => {
 	it('allows a retry after a failed capture instead of returning the stale rejection', async () => {
 		const { instance, sendMsg } = createMockInstance()
 		sendMsg.mockRejectedValueOnce(new Error('device unreachable'))
-		sendMsg.mockResolvedValueOnce(Buffer.from('fake-jpeg-bytes'))
+		sendMsg.mockResolvedValueOnce(CAPTURE_JPEG)
 		const chazyControl = new ChazyControl(instance, 5000, 5000)
 
 		await expect(chazyControl.getCapturePreview('169.254.3.140', 240)).rejects.toThrow('device unreachable')
 		// Immediately after, well within the TTL window, a retry should still go out rather
 		// than re-returning (and re-throwing) the same cached rejection.
 		await expect(chazyControl.getCapturePreview('169.254.3.140', 240)).resolves.toBe(
-			`data:image/png;base64,mock(${Buffer.from('fake-jpeg-bytes').toString('hex')})`,
+			`data:image/jpeg;base64,${CAPTURE_JPEG.toString('base64')}`,
 		)
 
 		expect(sendMsg).toHaveBeenCalledTimes(2)
+	})
+
+	it('rejects a capture that is not a JPEG, without caching it', async () => {
+		const { instance, sendMsg } = createMockInstance()
+		sendMsg.mockResolvedValueOnce(DEVICE_ERROR_BODY)
+		sendMsg.mockResolvedValueOnce(CAPTURE_JPEG)
+		const chazyControl = new ChazyControl(instance, 5000, 5000)
+
+		await expect(chazyControl.getCapturePreview('169.254.3.140', 240)).rejects.toThrow('Capture is not a JPEG')
+		await expect(chazyControl.getCapturePreview('169.254.3.140', 240)).resolves.toBe(
+			`data:image/jpeg;base64,${CAPTURE_JPEG.toString('base64')}`,
+		)
 	})
 })
 
