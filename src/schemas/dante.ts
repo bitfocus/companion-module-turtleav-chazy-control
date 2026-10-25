@@ -4,11 +4,10 @@ import { z } from 'zod'
  * Chazy Control – Dante status response schema (`getjson.cgi` — Dante section)
  *
  * Notes:
- * - Many numeric fields below are 0/1 flags in the firmware's JSON. They're
- *   typed as a literal union transformed to `boolean` (rather than
- *   `z.number()`), so any future firmware value outside {0, 1} fails
- *   validation loudly instead of silently passing through as an unexpected
- *   number, and callers get a real `boolean` rather than a `0 | 1` to check.
+ * - Many numeric fields below are 0/1 flags in the firmware's JSON, typed as
+ *   `zBinaryFlag` so callers get a real `boolean` rather than a `0 | 1` to
+ *   check. See its note for why an unexpected value reads as true rather
+ *   than failing the parse.
  * - `clksrc`, `sync`, `primultiv1/2`, `secmultiv1/2`, and channel `status`/
  *   `type` are typed as open `z.string()` rather than `z.enum([...])`, since
  *   only a single sample response was available to infer values from.
@@ -18,7 +17,16 @@ import { z } from 'zod'
  *   since both were empty in the observed sample — shape unconfirmed.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
+/**
+ * The device's 0/1 flags, as a boolean, with any non-zero value reading as true.
+ *
+ * Deliberately not a strict `0 | 1` union. These flag fields are guesses made from their names against a single
+ * device's response, and nothing in the module reads any of them — they are carried only so the whole object can be
+ * pushed into a variable. A strict union made one wrong guess fatal: a site with VLANs configured reported a `dvtag`
+ * outside 0/1, which failed the entire mxsta parse and left the module with no encoders, decoders, presets or
+ * variables. A wrong guess should cost an imprecise flag, not the feature set.
+ */
+const zBinaryFlag = z.number().transform((value) => value !== 0)
 
 const ControllerSchema = z.object({
 	vip: z.string(),

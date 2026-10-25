@@ -13,7 +13,16 @@ import { z } from 'zod'
  * - No `docver` field here, unlike most other sections.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
+/**
+ * The device's 0/1 flags, as a boolean, with any non-zero value reading as true.
+ *
+ * Deliberately not a strict `0 | 1` union. These flag fields are guesses made from their names against a single
+ * device's response, and nothing in the module reads any of them — they are carried only so the whole object can be
+ * pushed into a variable. A strict union made one wrong guess fatal: a site with VLANs configured reported a `dvtag`
+ * outside 0/1, which failed the entire mxsta parse and left the module with no encoders, decoders, presets or
+ * variables. A wrong guess should cost an imprecise flag, not the feature set.
+ */
+const zBinaryFlag = z.number().transform((value) => value !== 0)
 
 export const ChazyPingResponseSchema = z.compile(
 	z.object({

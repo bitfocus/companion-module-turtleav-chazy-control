@@ -21,11 +21,14 @@ import { z } from 'zod'
  *   has been observed, per the same conservative approach used for `syssta`
  *   and `netsta` below.
  * - Most numeric flags follow the device's usual 0/1 convention and are
- *   typed as `zBinaryFlag`, which parses `0`/`1` and transforms the result to
- *   a real `boolean`. A few (`iodir`, `ioset`, `ioget`, `dns_mode`,
- *   `*_ipmode`, `mode`, `cloud_server_code`, and the encoder/decoder `im`/
- *   `lan2_im` fields) look like bitmasks or wider enums rather than simple
- *   booleans, so they're left as `z.number()`.
+ *   typed as `zBinaryFlag`, which transforms the result to a real `boolean`.
+ *   A few (`iodir`, `ioset`, `ioget`, `dns_mode`, `*_ipmode`, `mode`,
+ *   `cloud_server_code`, the encoder/decoder `im`/`lan2_im`, and the `dvtag`
+ *   and `arccap` fields below) hold bitmasks, ids or wider enums rather than
+ *   simple booleans, so they're left as `z.number()`. The flag guesses are
+ *   made from field names against one device's response and some have turned
+ *   out wrong in the field, which is why `zBinaryFlag` tolerates a value
+ *   outside 0/1 rather than failing the whole parse.
  * - `cloud_server_en` is the one field that's a genuine JSON `boolean` on
  *   the wire rather than a 0/1 number — that's an inconsistency in the
  *   device API itself, not a transcription error here. It ends up typed the
@@ -55,7 +58,16 @@ import { z } from 'zod'
  *   like a separate state string, not an echo of the last-written value.
  */
 
-const zBinaryFlag = z.union([z.literal(0), z.literal(1)]).transform((value) => value === 1)
+/**
+ * The device's 0/1 flags, as a boolean, with any non-zero value reading as true.
+ *
+ * Deliberately not a strict `0 | 1` union. These flag fields are guesses made from their names against a single
+ * device's response, and nothing in the module reads any of them — they are carried only so the whole object can be
+ * pushed into a variable. A strict union made one wrong guess fatal: a site with VLANs configured reported a `dvtag`
+ * outside 0/1, which failed the entire mxsta parse and left the module with no encoders, decoders, presets or
+ * variables. A wrong guess should cost an imprecise flag, not the feature set.
+ */
+const zBinaryFlag = z.number().transform((value) => value !== 0)
 
 const SysStaSchema = z.object({
 	devname: z.string(),
@@ -164,7 +176,7 @@ const EncoderStatusSchema = z.object({
 	sm: z.string(),
 	mac: z.string(),
 	dvlan: zBinaryFlag,
-	dvtag: zBinaryFlag,
+	dvtag: z.number(), // 802.1Q VLAN id (0-4094), not a flag — a site with VLANs configured reported values outside 0/1
 	lan2_im: z.number(), // see `im`
 	lan2_ip: z.string(),
 	lan2_gw: z.string(),
@@ -183,7 +195,7 @@ const EncoderStatusSchema = z.object({
 	audstream: z.number(), // meaning unconfirmed
 	sig: zBinaryFlag, // likely "signal present"
 	conn: z.string(), // e.g. "HDMI:0"
-	arccap: zBinaryFlag, // ARC capability
+	arccap: z.number(), // ARC capability level, not a flag — reported outside 0/1 by decoders in the field
 	discec: zBinaryFlag, // likely "disable CEC" toggle
 	isp: z.number(), // meaning unconfirmed
 	led: zBinaryFlag,
@@ -269,7 +281,7 @@ const DecoderStatusSchema = z.object({
 	sm: z.string(),
 	mac: z.string(),
 	dvlan: zBinaryFlag,
-	dvtag: zBinaryFlag,
+	dvtag: z.number(), // 802.1Q VLAN id (0-4094), not a flag — a site with VLANs configured reported values outside 0/1
 	lan2_im: z.number(),
 	lan2_ip: z.string(),
 	lan2_gw: z.string(),
@@ -297,7 +309,7 @@ const DecoderStatusSchema = z.object({
 	snkinfospt: zBinaryFlag, // likely "sink info support"
 	preferred: z.string(),
 	hdcpcap: z.string(), // empty string in the observed sample — presumably reports HDCP capability/version as text
-	arccap: zBinaryFlag,
+	arccap: z.number(), // see the encoder's `arccap`
 	earcen: zBinaryFlag, // eARC enable
 	vw: zBinaryFlag, // per-decoder video-wall membership flag — unrelated to the top-level `vw` array
 	hdr: zBinaryFlag,

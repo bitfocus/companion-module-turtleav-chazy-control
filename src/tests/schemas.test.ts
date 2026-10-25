@@ -9,6 +9,7 @@ import { ChazyPingResponseSchema } from '../schemas/ping.js'
 import { ChazyScanStaResponseSchema } from '../schemas/scansta.js'
 import { ChazyTimeResponseSchema } from '../schemas/time.js'
 import { ChazyUserStaResponseSchema } from '../schemas/usersta.js'
+import { VALID_MXSTA_RESPONSE, emptyDecoderStatus, emptyEncoderStatus } from './fixtures.js'
 
 /**
  * Every response schema is wrapped in `z.compile()` so the polled parses in `api.ts`'s
@@ -41,6 +42,43 @@ const schemas = {
 	usersta: ChazyUserStaResponseSchema,
 }
 
+/**
+ * Reported from a 20-encoder / 7-decoder site (chazycontrol.ebc.nvidia.com): every `dvtag`, and `arccap` on two
+ * decoders, came back outside 0/1, so the strict flag union failed the whole mxsta parse. `#pollSchema` logs and
+ * moves on, so the module kept polling but never stored an mxsta — leaving no encoders, decoders, presets or
+ * variables. The exact values were not in the report; these stand in for "not 0 or 1".
+ */
+describe('mxsta tolerates device values outside the guessed 0/1 flag range', () => {
+	const payload = {
+		...VALID_MXSTA_RESPONSE,
+		in: [{ ...emptyEncoderStatus(), id: 1, name: 'Encoder 001', ip: '169.254.1.1', dvtag: 100 }],
+		out: [{ ...emptyDecoderStatus(), id: 1, name: 'Decoder 001', ip: '169.254.2.1', dvtag: 100, arccap: 2 }],
+	}
+
+	it('parses a response carrying a VLAN tag and an ARC capability level', () => {
+		expect(ChazyMxStaResponseSchema.safeParse(payload).success).toBe(true)
+	})
+
+	it('keeps the reported values rather than coercing them to flags', () => {
+		const parsed = ChazyMxStaResponseSchema.parse(payload)
+
+		expect(parsed.in[0].dvtag).toBe(100)
+		expect(parsed.out[0].dvtag).toBe(100)
+		expect(parsed.out[0].arccap).toBe(2)
+	})
+
+	it('still reads a genuine flag as a boolean, and treats any non-zero as set', () => {
+		const parsed = ChazyMxStaResponseSchema.parse({
+			...payload,
+			in: [{ ...emptyEncoderStatus(), dvlan: 0, sig: 1, led: 2 }],
+		})
+
+		expect(parsed.in[0].dvlan).toBe(false)
+		expect(parsed.in[0].sig).toBe(true)
+		expect(parsed.in[0].led).toBe(true)
+	})
+})
+
 describe('response schemas are AOT-compiled', () => {
 	it.each(Object.keys(schemas))('%s uses the compiled fast path', (name) => {
 		expect(isCompiled(schemas[name as keyof typeof schemas])).toBe(true)
@@ -53,8 +91,11 @@ describe('response schemas are AOT-compiled', () => {
 	})
 
 	it('applies the zBinaryFlag 0/1 -> boolean transform through the compiled path', () => {
-		const parsed = ChazyPingResponseSchema.parse({ addr: '1.2.3.4', result: [], success: 1 })
-		expect(parsed.success).toBe(true)
-		expect(ChazyPingResponseSchema.safeParse({ addr: '1.2.3.4', result: [], success: 2 }).success).toBe(false)
+		const ping = (success: unknown) => ChazyPingResponseSchema.safeParse({ addr: '1.2.3.4', result: [], success })
+
+		expect(ChazyPingResponseSchema.parse({ addr: '1.2.3.4', result: [], success: 1 }).success).toBe(true)
+		expect(ChazyPingResponseSchema.parse({ addr: '1.2.3.4', result: [], success: 0 }).success).toBe(false)
+		// Still a number check — the flag only tolerates unexpected numbers, not the wrong type
+		expect(ping('1').success).toBe(false)
 	})
 })

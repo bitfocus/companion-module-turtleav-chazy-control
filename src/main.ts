@@ -52,6 +52,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	// dante/encoder/decoder device-changed events can all fire out of the same poll cycle —
 	// debounce so a burst of them only triggers one rebuild instead of one per event.
 	#debouncedUpdateCompanionBits = debounce(() => this.updateCompanionBits(), 1000)
+	/** Variable ids currently defined, so UpdateVariableDefinitions can clear any that go away */
+	public readonly definedVariableIds = new Set<string>()
 
 	constructor(internal: unknown) {
 		super(internal)
