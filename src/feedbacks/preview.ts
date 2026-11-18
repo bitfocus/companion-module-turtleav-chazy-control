@@ -13,6 +13,7 @@ export type FeedbackSchemaPreview = {
 		options: {
 			device: string
 		}
+		result: string | null
 	}
 }
 
