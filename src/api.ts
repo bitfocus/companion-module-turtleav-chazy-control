@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import { createModuleLogger, type DropdownChoice } from '@companion-module/base'
 import type { z } from 'zod'
 import type { Message } from './types.js'
-import { ChazyDanteResponseSchema, type ChazyDanteResponse } from './schemas/dante.js'
+import { ChazyDanteResponseSchema, type ChazyDanteResponse, type DanteDevice } from './schemas/dante.js'
 import { ChazyDantePresetResponseSchema, type ChazyDantePresetResponse } from './schemas/dantepreset.js'
 import { ChazyMxStaResponseSchema, type ChazyMxStaResponse } from './schemas/mxsta.js'
 import { ChazyTimeResponseSchema, type ChazyTimeResponse } from './schemas/time.js'
@@ -80,7 +80,10 @@ export type EventType = keyof typeof EVENT_TYPES
 export type DecoderSwitchSignal = 'ALL' | 'VIDEO' | 'AUDIO' | 'IR' | 'RS232' | 'USB' | 'CEC' | 'MEDIA'
 
 export interface ChazyControlEvents {
-	/** Emitted whenever the dante devices found on the network change. */
+	/**
+	 * Emitted whenever the dante devices found on the network change: added, removed, renamed, readdressed, or a
+	 * channel added, removed or renamed. Subscription state is left out, so subscribing doesn't redefine everything.
+	 */
 	dante_device_changed: []
 	/** Emitted whenever an encoder's name or IP changes, or encoders are added/removed. */
 	encoder_device_changed: []
@@ -100,6 +103,12 @@ function areSetsEqual(a: string[], b: string[]): boolean {
 
 function toDeviceSignature(device: { name: string; ip: string }): string {
 	return `${device.name}|${device.ip}`
+}
+
+/** What the dante choices and per-device channel dropdowns are built from, and nothing else */
+function toDanteSignature(device: DanteDevice): string {
+	const channel = (ch: { type: string; id: number; name: string }) => `${ch.type}:${ch.id}:${ch.name}`
+	return JSON.stringify([device.name, device.priip, device.rxchn.map(channel), device.txchn.map(channel)])
 }
 
 function toPresetSignature(preset: { id: number; name: string }): string {
@@ -153,12 +162,12 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 		if (this.#signal?.aborted) return
 
 		await this.#pollSchema('dante devices', ChazyControl.getDanteDevices(), ChazyDanteResponseSchema, (parsed) => {
-			const newNames = parsed.dante.map((dev) => dev.name)
-			const oldNames = this.#dante?.dante.map((dev) => dev.name) ?? []
+			const newDevices = parsed.dante.map(toDanteSignature)
+			const oldDevices = this.#dante?.dante.map(toDanteSignature) ?? []
 
 			this.#dante = parsed
 
-			if (!areSetsEqual(newNames, oldNames)) {
+			if (!areSetsEqual(newDevices, oldDevices)) {
 				this.emit('dante_device_changed')
 			}
 		})
@@ -631,6 +640,19 @@ export default class ChazyControl extends EventEmitter<ChazyControlEvents> {
 			devices.push({ id: dev.name, label: `${dev.name} (${dev.priip})` })
 		}
 		return devices
+	}
+
+	/**
+	 * One dante device's channels in one direction, of one type, labelled by name. The id is the channel number, which
+	 * is what the device's commands take. Empty when the device is unknown or has no such channels.
+	 */
+	getDanteChannelChoices(devname: string, direction: 'rx' | 'tx', av: 'AUDIO' | 'VIDEO'): DropdownChoice<number>[] {
+		const device = this.#dante?.dante.find((dev) => dev.name === devname)
+		if (!device) return []
+		const channels = direction === 'rx' ? device.rxchn : device.txchn
+		return channels
+			.filter((ch) => ch.type.toUpperCase() === av)
+			.map((ch) => ({ id: ch.id, label: `${ch.name} (${ch.id})` }))
 	}
 
 	getDecoderEncoderIpChoices(): DropdownChoice<string>[] {

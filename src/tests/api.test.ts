@@ -8,6 +8,7 @@ import {
 	CAPTURE_JPEG,
 	DEVICE_ERROR_BODY,
 	VALID_MXSTA_RESPONSE,
+	emptyDanteDevice,
 	emptyDecoderStatus,
 	emptyEncoderStatus,
 } from './fixtures.js'
@@ -614,6 +615,46 @@ describe('ChazyControl polling', () => {
 		expect(onChanged).toHaveBeenCalledTimes(2)
 	})
 
+	it('emits dante_device_changed when a channel changes, but not when a subscription does', async () => {
+		vi.useFakeTimers()
+		const { instance, sendMsg } = createMockInstance()
+		let rxName = 'Left'
+		let subdev = ''
+		sendMsg.mockImplementation(async (msg) => {
+			if (msg.method === 'capture') throw new Error('Unexpected capture request')
+			if (msg.data === 'dante') {
+				const rx = { type: 'audio', name: rxName, id: 1, subdev, subchn: subdev ? 'Out 1' : '', status: 'NONE' }
+				return { ...VALID_DANTE_RESPONSE, dante: [{ ...emptyDanteDevice(), name: 'Device A', rxchn: [rx] }] }
+			}
+			return {
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
+				mxsta: VALID_MXSTA_RESPONSE,
+				time: VALID_TIME_RESPONSE,
+				controlevent: VALID_CONTROL_EVENT_RESPONSE,
+				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
+			}[msg.data]
+		})
+		const chazyControl = new ChazyControl(instance, 1000, 1000)
+		const onChanged = vi.fn()
+		chazyControl.on('dante_device_changed', onChanged)
+
+		chazyControl.startPolling()
+		await flushMicrotasks()
+		expect(onChanged).toHaveBeenCalledTimes(1)
+
+		// Subscribing changes the channel's state, not what the dropdowns are built from
+		subdev = 'Device B'
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onChanged).toHaveBeenCalledTimes(1)
+
+		// A renamed channel changes a dropdown label, so the definitions must be rebuilt
+		rxName = 'Program L'
+		await vi.advanceTimersByTimeAsync(1000)
+		await flushMicrotasks()
+		expect(onChanged).toHaveBeenCalledTimes(2)
+	})
+
 	it('emits encoder_device_changed only when the encoder set actually changes', async () => {
 		vi.useFakeTimers()
 		const { instance, sendMsg } = createMockInstance()
@@ -1014,62 +1055,51 @@ describe('ChazyControl.getDantePresetChoices', () => {
 	})
 })
 
-function emptyDanteDevice() {
-	return {
-		name: '',
-		unlicensed: 0,
-		ol: 1,
-		primac: '',
-		pristatic: 0,
-		col: 0,
-		priip: '',
-		primask: '',
-		prigw: '',
-		pridns: '',
-		prispeed: 0,
-		secip: '',
-		secspeed: 0,
-		manfname: '',
-		manfmodel: '',
-		modelver: '',
-		dantemodel: '',
-		owndep: 0,
-		swver: '',
-		clksrc: '',
-		sync: '',
-		mute: 0,
-		intfmode: 0,
-		primultiv1: '',
-		primultiv2: '',
-		secmultiv1: '',
-		secmultiv2: '',
-		aes67spt: 0,
-		aes67on: 0,
-		aes67prefix: 0,
-		clrconfspt: 0,
-		preferredspt: 0,
-		preferred: 0,
-		aes67dev: 0,
-		aes67src: '',
-		aes67sid: 0,
-		aes67clk: 0,
-		aes67pridest: '',
-		resetspt: 0,
-		setratespt: 0,
-		setencodingspt: 0,
-		staticipspt: 0,
-		pullupspt: 0,
-		rxlatencylist: [],
-		rxlatencymin: 0,
-		rxlatency: 0,
-		rxlatencymax: 0,
-		lock: 0,
-		srate: 0,
-		srate_array: [],
-		enc: 0,
-		encs_array: [],
-		rxchn: [],
-		txchn: [],
-		txflow: [],
+describe('ChazyControl.getDanteChannelChoices', () => {
+	async function chazyControlWithDevice() {
+		const { instance, sendMsg } = createMockInstance()
+		const device = {
+			...emptyDanteDevice(),
+			name: 'Stage-Box',
+			rxchn: [
+				{ type: 'audio', name: 'Mic 1', id: 1, subdev: '', subchn: '', status: 'NONE' },
+				{ type: 'video', name: 'Cam', id: 1, subdev: '', subchn: '', status: 'NONE' },
+				{ type: 'audio', name: 'Mic 2', id: 2, subdev: '', subchn: '', status: 'NONE' },
+			],
+			txchn: [{ type: 'audio', name: 'Mix', id: 5, enable: 1 }],
+		}
+		sendMsg.mockImplementation(async (msg) => {
+			if (msg.method === 'capture') throw new Error('Unexpected capture request')
+			return {
+				dante: { ...VALID_DANTE_RESPONSE, dante: [device] },
+				dantepreset: VALID_DANTE_PRESET_RESPONSE,
+				mxsta: VALID_MXSTA_RESPONSE,
+				time: VALID_TIME_RESPONSE,
+				controlevent: VALID_CONTROL_EVENT_RESPONSE,
+				controleventlog: VALID_CONTROL_EVENT_LOG_RESPONSE,
+			}[msg.data]
+		})
+		const chazyControl = new ChazyControl(instance, 5000, 5000)
+		chazyControl.startPolling()
+		await vi.waitFor(() => expect(chazyControl.dante).not.toBeNull())
+		return chazyControl
 	}
-}
+
+	it('lists one direction and type, labelled by name, with the channel number as id', async () => {
+		const chazyControl = await chazyControlWithDevice()
+
+		expect(chazyControl.getDanteChannelChoices('Stage-Box', 'rx', 'AUDIO')).toEqual([
+			{ id: 1, label: 'Mic 1 (1)' },
+			{ id: 2, label: 'Mic 2 (2)' },
+		])
+		expect(chazyControl.getDanteChannelChoices('Stage-Box', 'rx', 'VIDEO')).toEqual([{ id: 1, label: 'Cam (1)' }])
+		expect(chazyControl.getDanteChannelChoices('Stage-Box', 'tx', 'AUDIO')).toEqual([{ id: 5, label: 'Mix (5)' }])
+		expect(chazyControl.getDanteChannelChoices('Stage-Box', 'tx', 'VIDEO')).toEqual([])
+	})
+
+	it('returns [] for a device it does not know', async () => {
+		const chazyControl = await chazyControlWithDevice()
+
+		expect(chazyControl.getDanteChannelChoices('Nowhere', 'rx', 'AUDIO')).toEqual([])
+	})
+})

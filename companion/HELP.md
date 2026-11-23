@@ -55,6 +55,7 @@ Encoders and decoders are keyed by their numeric device id, so the variable name
 - Delete Transmit Flow
 - RX Channel Name
 - Subscription
+- Subscription (by name)
 - Latency
 - Get Device Status
 - Search Devices

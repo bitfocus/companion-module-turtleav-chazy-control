@@ -1,10 +1,41 @@
-import { type CompanionActionDefinitions, createModuleLogger } from '@companion-module/base'
+import {
+	type CompanionActionDefinitions,
+	createModuleLogger,
+	type SomeCompanionActionInputField,
+} from '@companion-module/base'
 import type ModuleInstance from '../main.js'
 import API from '../api.js'
 import { ensureAllActionKeys } from './utils.js'
 
 const NAME_REGEX = '/^(?!-)(?!.*-$).{1,31}$/'
 const IPV4_REGEX = '/^(\\d{1,3}\\.){3}\\d{1,3}$/'
+
+const DANTE_AV = ['AUDIO', 'VIDEO'] as const
+type DanteAv = (typeof DANTE_AV)[number]
+
+/** A TX channel of 0 removes the RX channel's subscription */
+const TX_NONE = { id: 0, label: 'None (remove subscription)' } as const
+
+/**
+ * The option holding one device's channel for one signal type, in `Dante - Subscription (by name)`. Each device and
+ * type gets its own dropdown, since each has its own channel list, and only the selected one is visible.
+ *
+ * Dante device names allow only letters, digits and hyphens, so swapping hyphens for underscores can't make two
+ * devices share an id.
+ */
+export function danteChannelOptionId<TDirection extends 'rx' | 'tx'>(
+	direction: TDirection,
+	devname: string,
+	av: DanteAv,
+): `${TDirection}Chan_${string}` {
+	return `${direction}Chan_${devname.replace(/[^a-zA-Z0-9_]/g, '_')}_${av.toLowerCase()}`
+}
+
+type SubscriptionByNameOptions = {
+	rxDev: string
+	av: DanteAv
+	txDev: string
+} & Partial<Record<`rxChan_${string}` | `txChan_${string}`, number>>
 
 export enum ActionIdsDanteControl {
 	SetDanteName = 'set_dante_name',
@@ -15,6 +46,7 @@ export enum ActionIdsDanteControl {
 	DeleteDanteTransmitFlow = 'delete_dante_transmit_flow',
 	SetDanteRxChannelName = 'set_dante_rx_channel_name',
 	SetDanteSubscription = 'set_dante_subscription',
+	SetDanteSubscriptionByName = 'set_dante_subscription_by_name',
 	SetDanteLatency = 'set_dante_latency',
 	SetDantePreferred = 'set_dante_preferred',
 	SetDanteAes67 = 'set_dante_aes67',
@@ -87,6 +119,9 @@ export type ActionSchemaDanteControl = {
 			txDev: string
 			txChan: number
 		}
+	}
+	[ActionIdsDanteControl.SetDanteSubscriptionByName]: {
+		options: SubscriptionByNameOptions
 	}
 	[ActionIdsDanteControl.SetDanteLatency]: {
 		options: {
@@ -179,6 +214,38 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 			{ id: 'VIDEO', label: 'Video' },
 		],
 		allowCustom: false,
+	}
+
+	/**
+	 * A channel dropdown per device and signal type, shown only while that device and type are selected.
+	 *
+	 * An RX dropdown is left out where the device has no such channels: a dropdown with no choices can never hold a
+	 * valid value. Every device gets TX dropdowns, as None is always a choice, and removing a subscription only needs
+	 * a valid TX device name.
+	 */
+	function subscriptionChannelOptions(
+		direction: 'rx' | 'tx',
+	): SomeCompanionActionInputField<keyof SubscriptionByNameOptions & string>[] {
+		const fields: SomeCompanionActionInputField<keyof SubscriptionByNameOptions & string>[] = []
+		for (const av of DANTE_AV) {
+			for (const { id: devname } of danteDeviceChoices) {
+				const channels = instance.chazyControl.getDanteChannelChoices(devname, direction, av)
+				if (direction === 'rx' && channels.length === 0) continue
+
+				const choices = direction === 'rx' ? channels : [TX_NONE, ...channels]
+				fields.push({
+					id: danteChannelOptionId(direction, devname, av),
+					type: 'dropdown',
+					label: direction === 'rx' ? 'RX Channel' : 'TX Channel',
+					choices,
+					// the device's first channel, or None for a TX device with no channels of this type
+					default: channels[0]?.id ?? TX_NONE.id,
+					allowCustom: false,
+					isVisibleExpression: `$(options:${direction}Dev) == '${devname}' && $(options:av) == '${av}'`,
+				})
+			}
+		}
+		return fields
 	}
 
 	// Supported on Chazy Control (non-Pro)
@@ -415,6 +482,52 @@ export function getDanteControlActions(instance: ModuleInstance): CompanionActio
 				event.options.txDev,
 				event.options.txChan,
 			)
+			await instance.sendMsg(msg, context.signal)
+		},
+	}
+	// Supported on Chazy Control (non-Pro)
+	actions[ActionIdsDanteControl.SetDanteSubscriptionByName] = {
+		name: 'Dante - Subscription (by name)',
+		description: 'As Dante - Subscription, but picking each channel by name from those the device reports.',
+		options: [
+			{
+				id: 'rxDev',
+				type: 'dropdown',
+				label: 'RX Device',
+				choices: danteDeviceChoices,
+				default: danteDeviceChoices[0]?.id ?? '',
+				allowCustom: false,
+				// required: the channel dropdowns' isVisibleExpression reads this option
+				disableAutoExpression: true,
+			},
+			...subscriptionChannelOptions('rx'),
+			{
+				...avOption,
+				// required: the channel dropdowns' isVisibleExpression reads this option
+				disableAutoExpression: true,
+			},
+			{
+				id: 'txDev',
+				type: 'dropdown',
+				label: 'TX Device',
+				choices: danteDeviceChoices,
+				default: danteDeviceChoices[0]?.id ?? '',
+				allowCustom: false,
+				// required: the channel dropdowns' isVisibleExpression reads this option
+				disableAutoExpression: true,
+			},
+			...subscriptionChannelOptions('tx'),
+		],
+		callback: async (event, context) => {
+			const { rxDev, av, txDev } = event.options
+			const rxChan = event.options[danteChannelOptionId('rx', rxDev, av)]
+			const txChan = event.options[danteChannelOptionId('tx', txDev, av)]
+			// Unset when the device or channel appeared after the action was last edited. Sending a guess could
+			// reroute the wrong channel, so refuse instead.
+			if (rxChan === undefined) throw new Error(`No ${av} RX channel selected for ${rxDev}`)
+			if (txChan === undefined) throw new Error(`No ${av} TX channel selected for ${txDev}`)
+
+			const msg = API.setDanteSubscription(rxDev, rxChan, av, txDev, txChan)
 			await instance.sendMsg(msg, context.signal)
 		},
 	}
